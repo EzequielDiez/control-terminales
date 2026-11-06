@@ -1,0 +1,47 @@
+name: Scraping Diario Terminales
+
+on:
+  schedule:
+    # 12:00 UTC equivale a las 09:00 AM hora de Argentina (UTC-3)
+    - cron: '0 12 * * *'
+  workflow_dispatch: # Permite probar el scraping manualmente con un clic en GitHub
+
+jobs:
+  scraping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias del proyecto
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          playwright install chromium --with-deps
+
+      - name: Ejecutar Scraper de COFCO
+        env:
+          COFCO_USER: ${{ secrets.COFCO_USER }}
+          COFCO_PASS: ${{ secrets.COFCO_PASS }}
+        run: python scraper/cofco_scraper.py
+
+      - name: Ejecutar Scraper de Cargill
+        env:
+          CARGILL_USER: ${{ secrets.CARGILL_USER }}
+          CARGILL_PASS: ${{ secrets.CARGILL_PASS }}
+        run: python scraper/cargill_scraper.py
+
+      - name: Guardar y subir datos actualizados
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add *.csv
+          git commit -m "Auto-actualización de datos CSV (9:00 AM)" || exit 0
+          git push
