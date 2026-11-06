@@ -4,27 +4,38 @@ on:
   schedule:
     # 12:00 UTC equivale a las 09:00 AM hora de Argentina (UTC-3)
     - cron: '0 12 * * *'
-  workflow_dispatch: # Permite probar el scraping manualmente con un clic en GitHub
+  workflow_dispatch:
 
 jobs:
   scraping:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
 
     steps:
       - name: Descargar repositorio
         uses: actions/checkout@v4
 
-      - name: Configurar Python
+      - name: Configurar Python con caché de pip
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip' # Guarda en caché paquetes de Python entre corridas
 
-      - name: Instalar dependencias del proyecto
+      - name: Instalar dependencias de Python
         run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          playwright install chromium --with-deps
+          pip install pandas playwright
+
+      - name: Caché de navegadores Playwright
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/requirements.txt') }}
+
+      - name: Instalar navegador Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: |
+          playwright install chromium
 
       - name: Ejecutar Scraper de COFCO
         env:
