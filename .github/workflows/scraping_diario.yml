@@ -19,23 +19,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip' # Guarda en caché paquetes de Python entre corridas
+          cache: 'pip'
 
       - name: Instalar dependencias de Python
         run: |
           pip install pandas playwright
 
-      - name: Caché de navegadores Playwright
-        uses: actions/cache@v4
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('**/requirements.txt') }}
-
-      - name: Instalar navegador Chromium
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
+      - name: Instalar navegador Chromium y dependencias del sistema
         run: |
-          playwright install chromium
+          playwright install --with-deps chromium
 
       - name: Ejecutar Scraper de COFCO
         env:
@@ -56,3 +48,7 @@ jobs:
           git add *.csv
           git commit -m "Auto-actualización de datos CSV (9:00 AM)" || exit 0
           git push
+
+      - name: Mantener activa la webapp de Streamlit
+        run: |
+          curl -s "https://control-terminales-hl.streamlit.app" > /dev/null
