@@ -1,51 +1,51 @@
 ﻿planta,nombre,dni,cuil,estado_color,estado_acceso,servicio
-APS-San Martin,GARRIDO DANIEL ROBERTO,13255758,,lightgreen,Autorizado,APS/Surveyors
-Alvear,GARRIDO DANIEL ROBERTO,13255758,,lightgreen,Autorizado,PPA/Surveyors
-VGG,GARRIDO DANIEL ROBERTO,13255758,,lightgreen,Autorizado,VGG/Surveyors
-APS-San Martin,Singarella Silvio Maximiliano,24.980.007,,lightcoral,No Autorizado,APS/Surveyors
-Alvear,Singarella Silvio Maximiliano,24.980.007,,lightcoral,No Autorizado,PPA/Surveyors
-VGG,Singarella Silvio Maximiliano,24.980.007,,lightcoral,No Autorizado,VGG/Surveyors
-APS-San Martin,TRANI PABLO GERMAN,26750038,,lightgreen,Autorizado,APS/Surveyors
-Alvear,TRANI PABLO GERMAN,26750038,,lightgreen,Autorizado,PPA/Surveyors
-VGG,TRANI PABLO GERMAN,26750038,,lightgreen,Autorizado,VGG/Surveyors
-APS-San Martin,Van Kooy Mario Norberto,27.515.546,,lightgreen,Autorizado,APS/Surveyors
-Alvear,Van Kooy Mario Norberto,27.515.546,,lightgreen,Autorizado,PPA/Surveyors
-VGG,Van Kooy Mario Norberto,27.515.546,,lightgreen,Autorizado,VGG/Surveyors
-APS-San Martin,LARRUBIA ALEJANDRO FABIAN,28199359,,lightgreen,Autorizado,APS/Surveyors
-Alvear,LARRUBIA ALEJANDRO FABIAN,28199359,,lightgreen,Autorizado,PPA/Surveyors
-VGG,LARRUBIA ALEJANDRO FABIAN,28199359,,lightgreen,Autorizado,VGG/Surveyors
-APS-San Martin,LLUEN DANIEL EDGARDO,28824130,,lightgreen,Autorizado,APS/Surveyors
-Alvear,LLUEN DANIEL EDGARDO,28824130,,lightgreen,Autorizado,PPA/Surveyors
-VGG,LLUEN DANIEL EDGARDO,28824130,,lightgreen,Autorizado,VGG/Surveyors
-APS-San Martin,BRUSCHINI JONATHAN LUIS,32653581,,lightgreen,Autorizado,APS/Surveyors
-Alvear,BRUSCHINI JONATHAN LUIS,32653581,,lightgreen,Autorizado,PPA/Surveyors
-VGG,BRUSCHINI JONATHAN LUIS,32653581,,lightgreen,Autorizado,VGG/Surveyors
-APS-San Martin,FIORENTINI HERNAN GUILLERMO,33662746,,lightgreen,Autorizado,APS/Surveyors
-Alvear,FIORENTINI HERNAN GUILLERMO,33662746,,lightgreen,Autorizado,PPA/Surveyors
-VGG,FIORENTINI HERNAN GUILLERMO,33662746,,lightgreen,Autorizado,VGG/Surveyors
-APS-San Martin,VERON EMANUEL ALEJANDRO,34178173,,lightgreen,Autorizado,APS/Surveyors
-Alvear,VERON EMANUEL ALEJANDRO,34178173,,lightgreen,Autorizado,PPA/Surveyors
-VGG,VERON EMANUEL ALEJANDRO,34178173,,lightgreen,Autorizado,VGG/Surveyors
-APS-San Martin,ACEITUNO BRUNO RAUL,38.320.705,,lightcoral,No Autorizado,APS/Surveyors
-Bahia Blanca Puerto,ACEITUNO BRUNO RAUL,38.320.705,,lightcoral,No Autorizado,Bahia Blanca puerto/SURVEYORS
-APS-San Martin,SALVATIERRA CLAUDIO,38.819.565,,lightgreen,Autorizado,APS/Surveyors
-Alvear,SALVATIERRA CLAUDIO,38.819.565,,lightgreen,Autorizado,PPA/Surveyors
-VGG,SALVATIERRA CLAUDIO,38.819.565,,lightgreen,Autorizado,VGG/Surveyors
-APS-San Martin,FLORES MAXIMILIANO NICOLAS,38375213,,lightcoral,No Autorizado,APS/Surveyors
-Alvear,FLORES MAXIMILIANO NICOLAS,38375213,,lightgreen,Autorizado,PPA/Surveyors
-VGG,FLORES MAXIMILIANO NICOLAS,38375213,,lightgreen,Autorizado,VGG/Surveyors
-APS-San Martin,ESTEVEZ LUCAS LERONARDO,38595856,,lightgreen,Autorizado,APS/Surveyors
-Alvear,ESTEVEZ LUCAS LERONARDO,38595856,,lightgreen,Autorizado,PPA/Surveyors
-VGG,ESTEVEZ LUCAS LERONARDO,38595856,,lightgreen,Autorizado,VGG/Surveyors
-APS-San Martin,DAVIES MATIAS NICOLAS,38597919,,lightgreen,Autorizado,APS/Surveyors
-Alvear,DAVIES MATIAS NICOLAS,38597919,,lightgreen,Autorizado,PPA/Surveyors
-VGG,DAVIES MATIAS NICOLAS,38597919,,lightgreen,Autorizado,VGG/Surveyors
-APS-San Martin,LACOSTE LAUTARO MILTON,39455212,,lightgreen,Autorizado,APS/Surveyors
-Alvear,LACOSTE LAUTARO MILTON,39455212,,lightgreen,Autorizado,PPA/Surveyors
-VGG,LACOSTE LAUTARO MILTON,39455212,,lightgreen,Autorizado,VGG/Surveyors
-APS-San Martin,ACOSTA MAXIMILIANO,39948360,,lightgreen,Autorizado,APS/Surveyors
 Alvear,ACOSTA MAXIMILIANO,39948360,,lightgreen,Autorizado,PPA/Surveyors
-VGG,ACOSTA MAXIMILIANO,39948360,,lightgreen,Autorizado,VGG/Surveyors
-APS-San Martin,Trani Alexis Nahuel,48.064.603,,lightgreen,Autorizado,APS/Surveyors
+Alvear,BRUSCHINI JONATHAN LUIS,32653581,,lightgreen,Autorizado,PPA/Surveyors
+Alvear,DAVIES MATIAS NICOLAS,38597919,,lightgreen,Autorizado,PPA/Surveyors
+Alvear,ESTEVEZ LUCAS LERONARDO,38595856,,lightgreen,Autorizado,PPA/Surveyors
+Alvear,FIORENTINI HERNAN GUILLERMO,33662746,,lightgreen,Autorizado,PPA/Surveyors
+Alvear,FLORES MAXIMILIANO NICOLAS,38375213,,lightgreen,Autorizado,PPA/Surveyors
+Alvear,GARRIDO DANIEL ROBERTO,13255758,,lightgreen,Autorizado,PPA/Surveyors
+Alvear,LACOSTE LAUTARO MILTON,39455212,,lightgreen,Autorizado,PPA/Surveyors
+Alvear,LARRUBIA ALEJANDRO FABIAN,28199359,,lightgreen,Autorizado,PPA/Surveyors
+Alvear,LLUEN DANIEL EDGARDO,28824130,,lightgreen,Autorizado,PPA/Surveyors
+Alvear,SALVATIERRA CLAUDIO,38.819.565,,lightgreen,Autorizado,PPA/Surveyors
+Alvear,Singarella Silvio Maximiliano,24.980.007,,lightcoral,No Autorizado,PPA/Surveyors
 Alvear,Trani Alexis Nahuel,48.064.603,,lightgreen,Autorizado,PPA/Surveyors
+Alvear,TRANI PABLO GERMAN,26750038,,lightgreen,Autorizado,PPA/Surveyors
+Alvear,Van Kooy Mario Norberto,27.515.546,,lightgreen,Autorizado,PPA/Surveyors
+Alvear,VERON EMANUEL ALEJANDRO,34178173,,lightgreen,Autorizado,PPA/Surveyors
+APS-San Martin,ACEITUNO BRUNO RAUL,38.320.705,,lightcoral,No Autorizado,APS/Surveyors
+APS-San Martin,ACOSTA MAXIMILIANO,39948360,,lightgreen,Autorizado,APS/Surveyors
+APS-San Martin,BRUSCHINI JONATHAN LUIS,32653581,,lightgreen,Autorizado,APS/Surveyors
+APS-San Martin,DAVIES MATIAS NICOLAS,38597919,,lightgreen,Autorizado,APS/Surveyors
+APS-San Martin,ESTEVEZ LUCAS LERONARDO,38595856,,lightgreen,Autorizado,APS/Surveyors
+APS-San Martin,FIORENTINI HERNAN GUILLERMO,33662746,,lightgreen,Autorizado,APS/Surveyors
+APS-San Martin,FLORES MAXIMILIANO NICOLAS,38375213,,lightcoral,No Autorizado,APS/Surveyors
+APS-San Martin,GARRIDO DANIEL ROBERTO,13255758,,lightgreen,Autorizado,APS/Surveyors
+APS-San Martin,LACOSTE LAUTARO MILTON,39455212,,lightgreen,Autorizado,APS/Surveyors
+APS-San Martin,LARRUBIA ALEJANDRO FABIAN,28199359,,lightgreen,Autorizado,APS/Surveyors
+APS-San Martin,LLUEN DANIEL EDGARDO,28824130,,lightgreen,Autorizado,APS/Surveyors
+APS-San Martin,SALVATIERRA CLAUDIO,38.819.565,,lightgreen,Autorizado,APS/Surveyors
+APS-San Martin,Singarella Silvio Maximiliano,24.980.007,,lightcoral,No Autorizado,APS/Surveyors
+APS-San Martin,Trani Alexis Nahuel,48.064.603,,lightgreen,Autorizado,APS/Surveyors
+APS-San Martin,TRANI PABLO GERMAN,26750038,,lightgreen,Autorizado,APS/Surveyors
+APS-San Martin,Van Kooy Mario Norberto,27.515.546,,lightgreen,Autorizado,APS/Surveyors
+APS-San Martin,VERON EMANUEL ALEJANDRO,34178173,,lightgreen,Autorizado,APS/Surveyors
+Bahia Blanca Puerto,ACEITUNO BRUNO RAUL,38.320.705,,lightcoral,No Autorizado,Bahia Blanca puerto/SURVEYORS
+VGG,ACOSTA MAXIMILIANO,39948360,,lightgreen,Autorizado,VGG/Surveyors
+VGG,BRUSCHINI JONATHAN LUIS,32653581,,lightgreen,Autorizado,VGG/Surveyors
+VGG,DAVIES MATIAS NICOLAS,38597919,,lightgreen,Autorizado,VGG/Surveyors
+VGG,ESTEVEZ LUCAS LERONARDO,38595856,,lightgreen,Autorizado,VGG/Surveyors
+VGG,FIORENTINI HERNAN GUILLERMO,33662746,,lightgreen,Autorizado,VGG/Surveyors
+VGG,FLORES MAXIMILIANO NICOLAS,38375213,,lightgreen,Autorizado,VGG/Surveyors
+VGG,GARRIDO DANIEL ROBERTO,13255758,,lightgreen,Autorizado,VGG/Surveyors
+VGG,LACOSTE LAUTARO MILTON,39455212,,lightgreen,Autorizado,VGG/Surveyors
+VGG,LARRUBIA ALEJANDRO FABIAN,28199359,,lightgreen,Autorizado,VGG/Surveyors
+VGG,LLUEN DANIEL EDGARDO,28824130,,lightgreen,Autorizado,VGG/Surveyors
+VGG,SALVATIERRA CLAUDIO,38.819.565,,lightgreen,Autorizado,VGG/Surveyors
+VGG,Singarella Silvio Maximiliano,24.980.007,,lightcoral,No Autorizado,VGG/Surveyors
 VGG,Trani Alexis Nahuel,48.064.603,,lightgreen,Autorizado,VGG/Surveyors
+VGG,TRANI PABLO GERMAN,26750038,,lightgreen,Autorizado,VGG/Surveyors
+VGG,Van Kooy Mario Norberto,27.515.546,,lightgreen,Autorizado,VGG/Surveyors
+VGG,VERON EMANUEL ALEJANDRO,34178173,,lightgreen,Autorizado,VGG/Surveyors
