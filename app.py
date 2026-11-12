@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
-import subprocess
+import requests
 
 # Configuración de la página
 st.set_page_config(
@@ -9,6 +9,29 @@ st.set_page_config(
     page_icon="⚓",
     layout="wide"
 )
+
+# Función para disparar el workflow en GitHub Actions
+def disparar_github_actions():
+    token = st.secrets.get("GITHUB_TOKEN")
+    if not token:
+        st.error("⚠️ Falta configurar GITHUB_TOKEN en los Secrets de Streamlit.")
+        return
+
+    url = "https://api.github.com/repos/EzequielDiez/control-terminales/actions/workflows/scraping_diario.yml/dispatches"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    
+    with st.spinner("Enviando orden de actualización a GitHub Actions..."):
+        try:
+            res = requests.post(url, headers=headers, json={"ref": "main"})
+            if res.status_code == 204:
+                st.success("✅ ¡Actualización iniciada en GitHub! Los datos se refrescarán automáticamente en unos 3 minutos.")
+            else:
+                st.error(f"❌ Error al iniciar workflow ({res.status_code}): {res.text}")
+        except Exception as e:
+            st.error(f"❌ Error de conexión con GitHub: {e}")
 
 # Estilos CSS
 st.markdown("""
@@ -74,14 +97,7 @@ if st.sidebar.button("👉 **Próximamente (Otras Terminales)**" if is_prox_acti
 
 st.sidebar.markdown("<hr>", unsafe_allow_html=True)
 if st.sidebar.button("🔄 Actualizar Todos los Datos", key="btn_global_scraping"):
-    with st.spinner("Ejecutando scrapers de COFCO y Cargill..."):
-        try:
-            subprocess.run(["python", "scraper/cofco_scraper.py"], check=True)
-            subprocess.run(["python", "scraper/cargill_scraper.py"], check=True)
-            st.success("¡Datos actualizados correctamente!")
-            st.rerun()
-        except Exception as e:
-            st.error(f"Error al ejecutar los scrapers: {e}")
+    disparar_github_actions()
 
 # =====================================================================
 # SECCIÓN: DASHBOARD GENERAL
@@ -168,13 +184,7 @@ elif st.session_state['pagina_activa'] == 'COFCO':
         st.subheader("Panel de Control: COFCO International")
     with col_b:
         if st.button("🔄 Actualizar", key="btn_scrap_cofco"):
-            with st.spinner("Actualizando COFCO..."):
-                try:
-                    subprocess.run(["python", "scraper/cofco_scraper.py"], check=True)
-                    st.success("¡Actualizado!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error: {e}")
+            disparar_github_actions()
 
     csv_pen = "cofco_pendientes.csv"
     csv_emp = "cofco_empleados_plantas.csv"
@@ -238,13 +248,7 @@ elif st.session_state['pagina_activa'] == 'Cargill':
         st.subheader("Panel de Control: Cargill (Pronexo)")
     with col_b:
         if st.button("🔄 Actualizar", key="btn_scrap_cargill"):
-            with st.spinner("Actualizando Cargill..."):
-                try:
-                    subprocess.run(["python", "scraper/cargill_scraper.py"], check=True)
-                    st.success("¡Actualizado!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error: {e}")
+            disparar_github_actions()
 
     csv_emp_pend = "cargill_empresa_pendientes.csv"
     csv_trab_pend = "cargill_trabajadores_pendientes.csv"
