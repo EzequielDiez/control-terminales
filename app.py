@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import requests
+import base64
 
 # Configuración de la página
 st.set_page_config(
@@ -59,9 +60,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Logo en sidebar
+# Logo en sidebar (renderizado en Base64 sin pérdida de calidad)
 if os.path.exists("assets/logoHL.png"):
-    st.sidebar.image("assets/logoHL.png", width=180)
+    with open("assets/logoHL.png", "rb") as f:
+        img_base64 = base64.b64encode(f.read()).decode()
+    st.sidebar.markdown(
+        f'<img src="data:image/png;base64,{img_base64}" style="width: 190px; height: auto; margin-bottom: 10px;">',
+        unsafe_allow_html=True
+    )
 else:
     st.sidebar.markdown("### 🏢 HL Control Services")
 
