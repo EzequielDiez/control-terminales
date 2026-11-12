@@ -41,7 +41,7 @@ def disparar_github_actions():
         except Exception as e:
             st.error(f"❌ Error de conexión con GitHub: {e}")
 
-# Estilos CSS (padding-top aumentado a 3.2rem para que no se tape la cabecera)
+# Estilos CSS
 st.markdown("""
     <style>
     .block-container { padding-top: 3.2rem; padding-bottom: 1rem; }
@@ -66,7 +66,7 @@ st.markdown("""
     }
     
     /* Oculta el menú de opciones superior (Settings / Theme) */
-#MainMenu { visibility: hidden; }
+    #MainMenu { visibility: hidden; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -74,6 +74,7 @@ st.markdown("""
 b64_hl = get_base64_img("assets/logoHL.png")
 b64_cofco = get_base64_img("assets/logoCOFCO.png")
 b64_cargill = get_base64_img("assets/logoCARGILL.png")
+b64_bunge = get_base64_img("assets/logoBUNGE.png")
 
 # Logo HL en sidebar
 if b64_hl:
@@ -127,8 +128,8 @@ if b64_cargill:
     with sb_g1:
         borde_cargill = "border-left: 3px solid #ff4b4b; padding-left: 6px;" if is_cargill_active else "padding-left: 9px;"
         st.markdown(
-            f'<div style="display:flex; align-items:center; height:38px; {borde_cargill}">'
-            f'<img src="data:image/png;base64,{b64_cargill}" style="max-height: 28px; max-width: 110px; object-fit: contain;">'
+            f'<div style="display:flex; align-items:center; height:48px; {borde_cargill}">'
+            f'<img src="data:image/png;base64,{b64_cargill}" style="max-height: 45px; max-width: 130px; object-fit: contain;">'
             f'</div>',
             unsafe_allow_html=True
         )
@@ -139,6 +140,27 @@ if b64_cargill:
 else:
     if st.sidebar.button("👉 **Cargill**" if is_cargill_active else "- Cargill", key="btn_cargill"):
         st.session_state['pagina_activa'] = 'Cargill'
+        st.rerun()
+
+# Opción Bunge (texto por ahora; si subes assets/logoBUNGE.png lo mostrará solo)
+is_bunge_active = st.session_state['pagina_activa'] == 'Bunge'
+if b64_bunge:
+    sb_b1, sb_b2 = st.sidebar.columns([1.4, 1])
+    with sb_b1:
+        borde_bunge = "border-left: 3px solid #ff4b4b; padding-left: 6px;" if is_bunge_active else "padding-left: 9px;"
+        st.markdown(
+            f'<div style="display:flex; align-items:center; height:38px; {borde_bunge}">'
+            f'<img src="data:image/png;base64,{b64_bunge}" style="max-height: 32px; max-width: 115px; object-fit: contain;">'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+    with sb_b2:
+        if st.button("**Activo**" if is_bunge_active else "Ver ▸", key="btn_bunge"):
+            st.session_state['pagina_activa'] = 'Bunge'
+            st.rerun()
+else:
+    if st.sidebar.button("👉 **Bunge**" if is_bunge_active else "- Bunge", key="btn_bunge"):
+        st.session_state['pagina_activa'] = 'Bunge'
         st.rerun()
 
 is_prox_active = st.session_state['pagina_activa'] == 'Próximamente'
@@ -158,6 +180,7 @@ if st.session_state['pagina_activa'] == 'Dashboard':
 
     df_emp_cofco = pd.read_csv("cofco_empleados_plantas.csv") if os.path.exists("cofco_empleados_plantas.csv") else pd.DataFrame()
     df_emp_cargill = pd.read_csv("cargill_empleados_plantas.csv") if os.path.exists("cargill_empleados_plantas.csv") else pd.DataFrame()
+    df_emp_bunge = pd.read_csv("bunge_empleados_plantas.csv") if os.path.exists("bunge_empleados_plantas.csv") else pd.DataFrame()
 
     d_col1, d_col2, d_col3 = st.columns([1.2, 1.2, 1.6])
     with d_col1:
@@ -166,6 +189,8 @@ if st.session_state['pagina_activa'] == 'Dashboard':
             terminales_disp.append("COFCO")
         if not df_emp_cargill.empty:
             terminales_disp.append("Cargill")
+        if not df_emp_bunge.empty:
+            terminales_disp.append("Bunge")
         term_elegida = st.selectbox("Terminal", options=terminales_disp)
 
     with d_col2:
@@ -173,6 +198,8 @@ if st.session_state['pagina_activa'] == 'Dashboard':
             plantas_disp = df_emp_cofco['planta'].dropna().unique().tolist()
         elif term_elegida == "Cargill" and not df_emp_cargill.empty:
             plantas_disp = df_emp_cargill['planta'].dropna().unique().tolist()
+        elif term_elegida == "Bunge" and not df_emp_bunge.empty:
+            plantas_disp = df_emp_bunge['planta'].dropna().unique().tolist()
         else:
             plantas_disp = []
         planta_elegida = st.selectbox("Planta / Instalación", options=["Seleccione Planta..."] + plantas_disp)
@@ -181,7 +208,13 @@ if st.session_state['pagina_activa'] == 'Dashboard':
         busq_dash = st.text_input("🔍 Buscar empleado (nombre o DNI)", placeholder="Filtrar en tiempo real...")
 
     if term_elegida != "Seleccione Terminal..." and planta_elegida != "Seleccione Planta...":
-        df_target = df_emp_cofco if term_elegida == "COFCO" else df_emp_cargill
+        if term_elegida == "COFCO":
+            df_target = df_emp_cofco
+        elif term_elegida == "Cargill":
+            df_target = df_emp_cargill
+        else:
+            df_target = df_emp_bunge
+
         df_filtrado = df_target[df_target['planta'] == planta_elegida].copy()
 
         def formatear_estado(val):
@@ -214,7 +247,12 @@ if st.session_state['pagina_activa'] == 'Dashboard':
 
         st.markdown("<hr style='margin: 10px 0px;'>", unsafe_allow_html=True)
 
-        cols_mostrar = ['nombre', 'dni', 'servicio'] if 'servicio' in df_filtrado.columns else ['nombre', 'dni', 'cuil']
+        if 'servicio' in df_filtrado.columns:
+            cols_mostrar = ['nombre', 'dni', 'servicio']
+        elif 'vigencia_hasta' in df_filtrado.columns:
+            cols_mostrar = ['nombre', 'dni', 'vigencia_hasta']
+        else:
+            cols_mostrar = ['nombre', 'dni', 'cuil']
         cols_validas = [c for c in cols_mostrar if c in df_filtrado.columns]
 
         col_izq, col_der = st.columns(2)
@@ -322,7 +360,7 @@ elif st.session_state['pagina_activa'] == 'Cargill':
     with col_logo:
         if b64_cargill:
             st.markdown(
-                f'<img src="data:image/png;base64,{b64_cargill}" style="max-height: 55px; width: auto; object-fit: contain;">',
+                f'<img src="data:image/png;base64,{b64_cargill}" style="max-height: 80px; width: auto; object-fit: contain;">',
                 unsafe_allow_html=True
             )
     with col_t:
@@ -373,6 +411,110 @@ elif st.session_state['pagina_activa'] == 'Cargill':
                 st.info("No hay registros en Control de Acceso.")
     else:
         st.warning("⚠️ No se encontraron archivos de Cargill. Ejecute el scraper.")
+
+# =====================================================================
+# SECCIÓN: BUNGE
+# =====================================================================
+elif st.session_state['pagina_activa'] == 'Bunge':
+    col_logo, col_t, col_b = st.columns([1.2, 4, 1.2])
+    with col_logo:
+        if b64_bunge:
+            st.markdown(
+                f'<img src="data:image/png;base64,{b64_bunge}" style="max-height: 55px; width: auto; object-fit: contain;">',
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown("### **BUNGE**")
+    with col_t:
+        st.subheader("Panel de Control: Bunge (Control Documentario)")
+    with col_b:
+        if st.button("🔄 Actualizar", key="btn_scrap_bunge", use_container_width=True):
+            disparar_github_actions()
+
+    csv_bunge_vtos = "bunge_vencimientos_proximos.csv"
+    csv_bunge_emp = "bunge_empleados_plantas.csv"
+
+    if os.path.exists(csv_bunge_vtos) or os.path.exists(csv_bunge_emp):
+        df_bunge_vtos = pd.read_csv(csv_bunge_vtos) if os.path.exists(csv_bunge_vtos) else pd.DataFrame()
+        df_bunge_emp = pd.read_csv(csv_bunge_emp) if os.path.exists(csv_bunge_emp) else pd.DataFrame()
+
+        vtos_empresa = len(df_bunge_vtos[df_bunge_vtos['tipo'] == 'Empresa']) if not df_bunge_vtos.empty else 0
+        vtos_personal = len(df_bunge_vtos[df_bunge_vtos['tipo'] == 'Personal']) if not df_bunge_vtos.empty else 0
+        empleados_unicos = df_bunge_emp['dni'].nunique() if (not df_bunge_emp.empty and 'dni' in df_bunge_emp.columns) else 0
+
+        b1, b2, b3, b4 = st.columns(4)
+        b1.metric("Alertas ≤ 15 días (Total)", len(df_bunge_vtos))
+        b2.metric("🏢 Docs. Empresa ≤ 15d", vtos_empresa)
+        b3.metric("👷‍♂️ Docs. Personal ≤ 15d", vtos_personal)
+        b4.metric("Personal Único", empleados_unicos)
+
+        st.markdown("<hr style='margin: 10px 0px;'>", unsafe_allow_html=True)
+        tab_b1, tab_b2 = st.tabs(["⚠️ Vencimientos Próximos (≤ 15 días)", "🏢 Estado de Empleados por Planta"])
+
+        with tab_b1:
+            if not df_bunge_vtos.empty:
+                f_b1, f_b2, f_b3 = st.columns([1.2, 1.2, 1.6])
+                with f_b1:
+                    plantas_vto = df_bunge_vtos['planta'].unique().tolist()
+                    filtro_planta_vto = st.multiselect("Planta / Sector", options=plantas_vto, default=plantas_vto, key="f_planta_bunge")
+                with f_b2:
+                    tipos_vto = df_bunge_vtos['tipo'].unique().tolist()
+                    filtro_tipo_vto = st.multiselect("Categoría", options=tipos_vto, default=tipos_vto, key="f_tipo_bunge")
+                with f_b3:
+                    busq_bunge = st.text_input("🔍 Buscar empleado o documento:", key="f_busq_bunge", placeholder="Filtrar...")
+
+                df_bv_f = df_bunge_vtos[
+                    df_bunge_vtos['planta'].isin(filtro_planta_vto) &
+                    df_bunge_vtos['tipo'].isin(filtro_tipo_vto)
+                ]
+                if busq_bunge:
+                    df_bv_f = df_bv_f[
+                        df_bv_f['nombre'].str.contains(busq_bunge, case=False, na=False) |
+                        df_bv_f['documento'].str.contains(busq_bunge, case=False, na=False) |
+                        df_bv_f['dni'].astype(str).str.contains(busq_bunge, case=False, na=False)
+                    ]
+
+                st.dataframe(
+                    df_bv_f[['planta', 'tipo', 'nombre', 'dni', 'documento', 'vencimiento', 'estado']],
+                    use_container_width=True,
+                    hide_index=True,
+                    height=350
+                )
+                st.download_button(
+                    "📥 Descargar Vencimientos Bunge (≤ 15 días)",
+                    data=df_bv_f.to_csv(index=False).encode('utf-8-sig'),
+                    file_name="bunge_vencimientos_proximos.csv",
+                    mime="text/csv"
+                )
+            else:
+                st.success("✅ No hay documentación vencida ni por vencer en los próximos 15 días en Bunge.")
+
+        with tab_b2:
+            if not df_bunge_emp.empty:
+                plantas_b_disp = df_bunge_emp['planta'].unique().tolist()
+                planta_b_elegida = st.selectbox("Planta / Sector:", options=["Seleccione una planta..."] + plantas_b_disp, key="sel_planta_det_bunge")
+
+                if planta_b_elegida != "Seleccione una planta...":
+                    df_be_f = df_bunge_emp[df_bunge_emp['planta'] == planta_b_elegida].copy()
+                    df_be_f['Estado'] = df_be_f['estado_color'].apply(lambda x: "🟢 Habilitado" if 'lightgreen' in str(x).lower() else "🔴 Inhabilitado")
+                    st.dataframe(
+                        df_be_f[['nombre', 'dni', 'vigencia_hasta', 'Estado']],
+                        use_container_width=True,
+                        hide_index=True,
+                        height=350
+                    )
+                    st.download_button(
+                        f"📥 Descargar Nómina {planta_b_elegida}",
+                        data=df_be_f.to_csv(index=False).encode('utf-8-sig'),
+                        file_name=f"bunge_empleados_{planta_b_elegida}.csv",
+                        mime="text/csv"
+                    )
+                else:
+                    st.info("👆 Seleccione una planta en el selector superior.")
+            else:
+                st.info("No hay datos de personal cargados para Bunge.")
+    else:
+        st.warning("⚠️ No se encontraron archivos de Bunge. Ejecute el scraper.")
 
 elif st.session_state['pagina_activa'] == 'Próximamente':
     st.subheader("🚧 Próximamente")
