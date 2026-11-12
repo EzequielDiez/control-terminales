@@ -11,6 +11,13 @@ st.set_page_config(
     layout="wide"
 )
 
+# Función helper para cargar imágenes en Base64 sin pérdida de calidad
+def get_base64_img(path):
+    if os.path.exists(path):
+        with open(path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    return None
+
 # Función para disparar el workflow en GitHub Actions
 def disparar_github_actions():
     token = st.secrets.get("GITHUB_TOKEN")
@@ -34,10 +41,10 @@ def disparar_github_actions():
         except Exception as e:
             st.error(f"❌ Error de conexión con GitHub: {e}")
 
-# Estilos CSS
+# Estilos CSS (padding-top aumentado a 3.2rem para que no se tape la cabecera)
 st.markdown("""
     <style>
-    .block-container { padding-top: 1.5rem; padding-bottom: 1rem; }
+    .block-container { padding-top: 3.2rem; padding-bottom: 1rem; }
     h1 { font-size: 1.8rem !important; margin-bottom: 0px !important; }
     h3 { font-size: 1.2rem !important; margin-top: 5px !important; }
     .stMetric { background-color: #f8f9fa; padding: 8px 12px; border-radius: 6px; border: 1px solid #e9ecef; }
@@ -60,12 +67,15 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Logo en sidebar (renderizado en Base64 sin pérdida de calidad)
-if os.path.exists("assets/logoHL.png"):
-    with open("assets/logoHL.png", "rb") as f:
-        img_base64 = base64.b64encode(f.read()).decode()
+# Pre-carga de logos en Base64
+b64_hl = get_base64_img("assets/logoHL.png")
+b64_cofco = get_base64_img("assets/logoCOFCO.png")
+b64_cargill = get_base64_img("assets/logoCARGILL.png")
+
+# Logo HL en sidebar
+if b64_hl:
     st.sidebar.markdown(
-        f'<img src="data:image/png;base64,{img_base64}" style="width: 190px; height: auto; margin-bottom: 10px;">',
+        f'<img src="data:image/png;base64,{b64_hl}" style="width: 190px; height: auto; margin-bottom: 10px;">',
         unsafe_allow_html=True
     )
 else:
@@ -77,7 +87,7 @@ st.sidebar.markdown("<br>", unsafe_allow_html=True)
 if 'pagina_activa' not in st.session_state:
     st.session_state['pagina_activa'] = 'Dashboard'
 
-# Botones de navegación
+# Botón Dashboard
 is_dash_active = st.session_state['pagina_activa'] == 'Dashboard'
 if st.sidebar.button("👉 **DASHBOARD**" if is_dash_active else "DASHBOARD", key="btn_dash"):
     st.session_state['pagina_activa'] = 'Dashboard'
@@ -86,15 +96,47 @@ if st.sidebar.button("👉 **DASHBOARD**" if is_dash_active else "DASHBOARD", ke
 st.sidebar.markdown("<br>", unsafe_allow_html=True)
 st.sidebar.markdown("**TERMINALES**")
 
+# Opción COFCO con su logo en la barra lateral
 is_cofco_active = st.session_state['pagina_activa'] == 'COFCO'
-if st.sidebar.button("👉 **COFCO**" if is_cofco_active else "- COFCO", key="btn_cofco"):
-    st.session_state['pagina_activa'] = 'COFCO'
-    st.rerun()
+if b64_cofco:
+    sb_c1, sb_c2 = st.sidebar.columns([1.4, 1])
+    with sb_c1:
+        borde_cofco = "border-left: 3px solid #ff4b4b; padding-left: 6px;" if is_cofco_active else "padding-left: 9px;"
+        st.markdown(
+            f'<div style="display:flex; align-items:center; height:38px; {borde_cofco}">'
+            f'<img src="data:image/png;base64,{b64_cofco}" style="max-height: 28px; max-width: 110px; object-fit: contain;">'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+    with sb_c2:
+        if st.button("**Activo**" if is_cofco_active else "Ver ▸", key="btn_cofco"):
+            st.session_state['pagina_activa'] = 'COFCO'
+            st.rerun()
+else:
+    if st.sidebar.button("👉 **COFCO**" if is_cofco_active else "- COFCO", key="btn_cofco"):
+        st.session_state['pagina_activa'] = 'COFCO'
+        st.rerun()
 
+# Opción Cargill con su logo en la barra lateral
 is_cargill_active = st.session_state['pagina_activa'] == 'Cargill'
-if st.sidebar.button("👉 **Cargill**" if is_cargill_active else "- Cargill", key="btn_cargill"):
-    st.session_state['pagina_activa'] = 'Cargill'
-    st.rerun()
+if b64_cargill:
+    sb_g1, sb_g2 = st.sidebar.columns([1.4, 1])
+    with sb_g1:
+        borde_cargill = "border-left: 3px solid #ff4b4b; padding-left: 6px;" if is_cargill_active else "padding-left: 9px;"
+        st.markdown(
+            f'<div style="display:flex; align-items:center; height:38px; {borde_cargill}">'
+            f'<img src="data:image/png;base64,{b64_cargill}" style="max-height: 28px; max-width: 110px; object-fit: contain;">'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+    with sb_g2:
+        if st.button("**Activo**" if is_cargill_active else "Ver ▸", key="btn_cargill"):
+            st.session_state['pagina_activa'] = 'Cargill'
+            st.rerun()
+else:
+    if st.sidebar.button("👉 **Cargill**" if is_cargill_active else "- Cargill", key="btn_cargill"):
+        st.session_state['pagina_activa'] = 'Cargill'
+        st.rerun()
 
 is_prox_active = st.session_state['pagina_activa'] == 'Próximamente'
 if st.sidebar.button("👉 **Próximamente (Otras Terminales)**" if is_prox_active else "- Próximamente (Otras Terminales)", key="btn_prox"):
@@ -153,7 +195,6 @@ if st.session_state['pagina_activa'] == 'Dashboard':
         df_hab = df_filtrado[df_filtrado['Estado'] == "Habilitado"].copy()
         df_inhab = df_filtrado[df_filtrado['Estado'] == "Inhabilitado"].copy()
 
-        # Métricas compactas + botón de descarga en la misma fila
         m_col1, m_col2, m_col3, m_col4 = st.columns([1, 1, 1, 1.3])
         m_col1.metric("Total en Planta", len(df_filtrado))
         m_col2.metric("🟢 Habilitados", len(df_hab))
@@ -170,7 +211,6 @@ if st.session_state['pagina_activa'] == 'Dashboard':
 
         st.markdown("<hr style='margin: 10px 0px;'>", unsafe_allow_html=True)
 
-        # Columnas a mostrar
         cols_mostrar = ['nombre', 'dni', 'servicio'] if 'servicio' in df_filtrado.columns else ['nombre', 'dni', 'cuil']
         cols_validas = [c for c in cols_mostrar if c in df_filtrado.columns]
 
@@ -208,14 +248,17 @@ if st.session_state['pagina_activa'] == 'Dashboard':
 # SECCIÓN: COFCO
 # =====================================================================
 elif st.session_state['pagina_activa'] == 'COFCO':
-    col_logo, col_t, col_b = st.columns([1, 4, 1])
+    col_logo, col_t, col_b = st.columns([1.2, 4, 1.2])
     with col_logo:
-        if os.path.exists("assets/logoCOFCO.png"):
-            st.image("assets/logoCOFCO.png", width=80)
+        if b64_cofco:
+            st.markdown(
+                f'<img src="data:image/png;base64,{b64_cofco}" style="max-height: 55px; width: auto; object-fit: contain;">',
+                unsafe_allow_html=True
+            )
     with col_t:
         st.subheader("Panel de Control: COFCO International")
     with col_b:
-        if st.button("🔄 Actualizar", key="btn_scrap_cofco"):
+        if st.button("🔄 Actualizar", key="btn_scrap_cofco", use_container_width=True):
             disparar_github_actions()
 
     csv_pen = "cofco_pendientes.csv"
@@ -272,14 +315,17 @@ elif st.session_state['pagina_activa'] == 'COFCO':
 # SECCIÓN: CARGILL
 # =====================================================================
 elif st.session_state['pagina_activa'] == 'Cargill':
-    col_logo, col_t, col_b = st.columns([1, 4, 1])
+    col_logo, col_t, col_b = st.columns([1.2, 4, 1.2])
     with col_logo:
-        if os.path.exists("assets/logoCARGILL.png"):
-            st.image("assets/logoCARGILL.png", width=80)
+        if b64_cargill:
+            st.markdown(
+                f'<img src="data:image/png;base64,{b64_cargill}" style="max-height: 55px; width: auto; object-fit: contain;">',
+                unsafe_allow_html=True
+            )
     with col_t:
         st.subheader("Panel de Control: Cargill (Pronexo)")
     with col_b:
-        if st.button("🔄 Actualizar", key="btn_scrap_cargill"):
+        if st.button("🔄 Actualizar", key="btn_scrap_cargill", use_container_width=True):
             disparar_github_actions()
 
     csv_emp_pend = "cargill_empresa_pendientes.csv"
