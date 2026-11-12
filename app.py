@@ -64,6 +64,9 @@ st.markdown("""
         background-color: #f0f2f6;
         color: #000000;
     }
+    
+    /* Oculta el menú de opciones superior (Settings / Theme) */
+#MainMenu { visibility: hidden; }
     </style>
 """, unsafe_allow_html=True)
 
