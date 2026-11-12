@@ -70,6 +70,8 @@ def ejecutar_scraping_cargill():
         df_empresa = pd.DataFrame(documentos_empresa)
         if df_empresa.empty:
             df_empresa = pd.DataFrame(columns=["documento", "tope_entrega", "periodo", "cliente", "estado"])
+        else:
+            df_empresa = df_empresa.sort_values(by="documento", key=lambda col: col.str.lower()).reset_index(drop=True)
         df_empresa.to_csv("cargill_empresa_pendientes.csv", index=False, encoding="utf-8-sig")
 
         # -------------------------------------------------------------
@@ -132,6 +134,8 @@ def ejecutar_scraping_cargill():
         df_trab_pend = pd.DataFrame(trabajadores_pendientes_detalle)
         if df_trab_pend.empty:
             df_trab_pend = pd.DataFrame(columns=["nombre", "dni", "requisito_pendiente", "estado"])
+        else:
+            df_trab_pend = df_trab_pend.sort_values(by=["nombre", "requisito_pendiente"], key=lambda col: col.str.lower()).reset_index(drop=True)
         df_trab_pend.to_csv("cargill_trabajadores_pendientes.csv", index=False, encoding="utf-8-sig")
 
         # -------------------------------------------------------------
@@ -214,6 +218,8 @@ def ejecutar_scraping_cargill():
         df_emp_plantas = pd.DataFrame(empleados_plantas_cargill)
         if df_emp_plantas.empty:
             df_emp_plantas = pd.DataFrame(columns=["planta", "nombre", "dni", "cuil", "estado_color", "estado_acceso", "servicio"])
+        else:
+            df_emp_plantas = df_emp_plantas.sort_values(by=["planta", "nombre"], key=lambda col: col.str.lower()).reset_index(drop=True)
             
         df_emp_plantas.to_csv("cargill_empleados_plantas.csv", index=False, encoding="utf-8-sig")
 
