@@ -48,3 +48,7 @@ jobs:
           git add *.csv
           git commit -m "Auto-actualización de datos CSV (8:43 AM)" || exit 0
           git push
+
+      - name: Mantener activa la webapp de Streamlit
+        run: |
+          curl -s "https://control-terminales-hl.streamlit.app" > /dev/null
