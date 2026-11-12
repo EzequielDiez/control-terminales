@@ -38,12 +38,18 @@ jobs:
           CARGILL_PASS: ${{ secrets.CARGILL_PASS }}
         run: python scraper/cargill_scraper.py
 
+      - name: Ejecutar Scraper de Bunge
+        env:
+          BUNGE_USER: ${{ secrets.BUNGE_USER }}
+          BUNGE_PASS: ${{ secrets.BUNGE_PASS }}
+        run: python scraper/bunge_scraper.py
+
       - name: Guardar y subir datos actualizados
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add *.csv
-          git commit -m "Auto-actualización de datos CSV" || exit 0
+          git add *.csv screenshots/*.png
+          git commit -m "Auto-actualización de datos CSV y capturas" || exit 0
           git push
 
       - name: Mantener activa la webapp de Streamlit
