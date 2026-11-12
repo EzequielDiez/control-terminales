@@ -108,7 +108,7 @@ if st.session_state['pagina_activa'] == 'Dashboard':
     df_emp_cofco = pd.read_csv("cofco_empleados_plantas.csv") if os.path.exists("cofco_empleados_plantas.csv") else pd.DataFrame()
     df_emp_cargill = pd.read_csv("cargill_empleados_plantas.csv") if os.path.exists("cargill_empleados_plantas.csv") else pd.DataFrame()
 
-    d_col1, d_col2 = st.columns(2)
+    d_col1, d_col2, d_col3 = st.columns([1.2, 1.2, 1.6])
     with d_col1:
         terminales_disp = ["Seleccione Terminal..."]
         if not df_emp_cofco.empty:
@@ -126,49 +126,75 @@ if st.session_state['pagina_activa'] == 'Dashboard':
             plantas_disp = []
         planta_elegida = st.selectbox("Planta / Instalación", options=["Seleccione Planta..."] + plantas_disp)
 
-    st.markdown("<hr style='margin: 15px 0px;'>", unsafe_allow_html=True)
+    with d_col3:
+        busq_dash = st.text_input("🔍 Buscar empleado (nombre o DNI)", placeholder="Filtrar en tiempo real...")
 
     if term_elegida != "Seleccione Terminal..." and planta_elegida != "Seleccione Planta...":
         df_target = df_emp_cofco if term_elegida == "COFCO" else df_emp_cargill
         df_filtrado = df_target[df_target['planta'] == planta_elegida].copy()
 
         def formatear_estado(val):
-            return "🟢 Habilitado" if 'lightgreen' in str(val).lower() else "🔴 Inhabilitado"
+            return "Habilitado" if 'lightgreen' in str(val).lower() else "Inhabilitado"
 
         df_filtrado['Estado'] = df_filtrado['estado_color'].apply(formatear_estado)
 
-        total_en_planta = len(df_filtrado)
-        habilitados = len(df_filtrado[df_filtrado['Estado'] == "🟢 Habilitado"])
-        inhabilitados = len(df_filtrado[df_filtrado['Estado'] == "🔴 Inhabilitado"])
-
-        m_col1, m_col2, m_col3 = st.columns(3)
-        m_col1.metric("Personal en Planta", total_en_planta)
-        m_col2.metric("Habilitados", habilitados)
-        m_col3.metric("Inhabilitados", inhabilitados)
-
-        st.markdown(f"### Nómina: {term_elegida} › {planta_elegida}")
-
-        busq_dash = st.text_input("🔍 Buscar empleado por nombre o DNI:", placeholder="Escribe para filtrar...")
         if busq_dash:
             df_filtrado = df_filtrado[
                 df_filtrado['nombre'].str.contains(busq_dash, case=False, na=False) |
                 df_filtrado['dni'].astype(str).str.contains(busq_dash, case=False, na=False)
             ]
 
-        cols_mostrar = ['nombre', 'dni', 'servicio', 'Estado'] if 'servicio' in df_filtrado.columns else ['nombre', 'dni', 'cuil', 'Estado']
-        st.dataframe(
-            df_filtrado[[c for c in cols_mostrar if c in df_filtrado.columns]],
-            use_container_width=True,
-            hide_index=True,
-            height=380
-        )
+        df_hab = df_filtrado[df_filtrado['Estado'] == "Habilitado"].copy()
+        df_inhab = df_filtrado[df_filtrado['Estado'] == "Inhabilitado"].copy()
 
-        st.download_button(
-            f"📥 Descargar Reporte - {term_elegida} ({planta_elegida})",
-            data=df_filtrado.to_csv(index=False).encode('utf-8-sig'),
-            file_name=f"dashboard_{term_elegida}_{planta_elegida}.csv",
-            mime="text/csv"
-        )
+        # Métricas compactas + botón de descarga en la misma fila
+        m_col1, m_col2, m_col3, m_col4 = st.columns([1, 1, 1, 1.3])
+        m_col1.metric("Total en Planta", len(df_filtrado))
+        m_col2.metric("🟢 Habilitados", len(df_hab))
+        m_col3.metric("🔴 Inhabilitados", len(df_inhab))
+        with m_col4:
+            st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
+            st.download_button(
+                f"📥 Descargar CSV ({planta_elegida})",
+                data=df_filtrado.to_csv(index=False).encode('utf-8-sig'),
+                file_name=f"dashboard_{term_elegida}_{planta_elegida}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+
+        st.markdown("<hr style='margin: 10px 0px;'>", unsafe_allow_html=True)
+
+        # Columnas a mostrar
+        cols_mostrar = ['nombre', 'dni', 'servicio'] if 'servicio' in df_filtrado.columns else ['nombre', 'dni', 'cuil']
+        cols_validas = [c for c in cols_mostrar if c in df_filtrado.columns]
+
+        col_izq, col_der = st.columns(2)
+
+        with col_izq:
+            st.markdown(f"#### 🟢 Habilitados ({len(df_hab)})")
+            if not df_hab.empty:
+                altura_hab = (len(df_hab) + 1) * 35 + 3
+                st.dataframe(
+                    df_hab[cols_validas],
+                    use_container_width=True,
+                    hide_index=True,
+                    height=altura_hab
+                )
+            else:
+                st.info("No hay personal habilitado con los filtros actuales.")
+
+        with col_der:
+            st.markdown(f"#### 🔴 Inhabilitados ({len(df_inhab)})")
+            if not df_inhab.empty:
+                altura_inhab = (len(df_inhab) + 1) * 35 + 3
+                st.dataframe(
+                    df_inhab[cols_validas],
+                    use_container_width=True,
+                    hide_index=True,
+                    height=altura_inhab
+                )
+            else:
+                st.success("¡Todo el personal está habilitado!")
     else:
         st.info("👆 Seleccione una **Terminal** y una **Planta / Instalación** en los desplegables superiores.")
 
