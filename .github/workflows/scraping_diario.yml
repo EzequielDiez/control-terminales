@@ -1,10 +1,7 @@
 name: Scraping Diario Terminales
 
 on:
-  schedule:
-    # 11:43 UTC equivale a las 08:43 AM hora de Argentina (evita la cola del minuto :00)
-    - cron: '43 11 * * *'
-  workflow_dispatch: # Permite probar el scraping manualmente con un clic en GitHub
+  workflow_dispatch: # Disparado por cron-job.org (9:00 AM) o manualmente desde Streamlit / GitHub
 
 jobs:
   scraping:
@@ -46,7 +43,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add *.csv
-          git commit -m "Auto-actualización de datos CSV (8:43 AM)" || exit 0
+          git commit -m "Auto-actualización de datos CSV" || exit 0
           git push
 
       - name: Mantener activa la webapp de Streamlit
