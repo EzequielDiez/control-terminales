@@ -1,13 +1,13 @@
-﻿nombre,dni,requisito_pendiente,estado
-ACEITUNO BRUNO RAUL,38.320.705,Charla de inducción de seguridad BAHIA BLANCA.,Solicitado
-ACEITUNO BRUNO RAUL,38.320.705,DNI original o pasaporte(Extranjero).,Rechazado
-ACEITUNO BRUNO RAUL,38.320.705,Examen médico según las tareas/perfiles declaradas para el trabajador.,Rechazado
-ACOSTA MAXIMILIANO,39948360,Charla de inducción de seguridad VGG/ALVEAR.,Rechazado
-ESTEVEZ LUCAS LERONARDO,38595856,Charla de inducción de seguridad VGG/ALVEAR.,Rechazado
-FLORES MAXIMILIANO NICOLAS,38375213,Charla de inducción de seguridad APS.,Rechazado
-Singarella Silvio Maximiliano,24.980.007,Charla de inducción de seguridad VGG/ALVEAR.,Rechazado
-Singarella Silvio Maximiliano,24.980.007,Examen médico según las tareas/perfiles declaradas para el trabajador.,Rechazado
-TESSI JUAN DIEGO,26380398,Charla de inducción de seguridad APS.,Rechazado
-TESSI JUAN DIEGO,26380398,Copia del certificado de ART con nomina de personal y clausula de no repetición a favor de Cargill.,Rechazado
-TRANI PABLO GERMAN,26750038,Charla de inducción de seguridad VGG/ALVEAR.,Rechazado
-VERON EMANUEL ALEJANDRO,34178173,Charla de inducción de seguridad VGG/ALVEAR.,Rechazado
+﻿nombre,dni,documento,planta,vencimiento,dias_restantes,estado
+ACEITUNO BRUNO RAUL,38.320.705,Charla de inducción de seguridad BAHIA BLANCA.,"APS-San Martin, Bahia Blanca Puerto",15/12/2020,-2159,Vencido
+ACEITUNO BRUNO RAUL,38.320.705,DNI original o pasaporte(Extranjero).,"APS-San Martin, Bahia Blanca Puerto",28/10/2025,-381,Vencido
+ACEITUNO BRUNO RAUL,38.320.705,Examen médico según las tareas/perfiles declaradas para el trabajador.,"APS-San Martin, Bahia Blanca Puerto",10/02/2022,-1737,Vencido
+ACOSTA MAXIMILIANO,39948360,Charla de inducción de seguridad VGG/ALVEAR.,"APS-San Martin, Alvear, VGG",20/11/2026,7,Vencido
+ESTEVEZ LUCAS LERONARDO,38595856,Charla de inducción de seguridad VGG/ALVEAR.,"APS-San Martin, Alvear, VGG",18/11/2026,5,Vencido
+FLORES MAXIMILIANO NICOLAS,38375213,Charla de inducción de seguridad APS.,"APS-San Martin, Alvear, VGG",23/10/2026,-21,Vencido
+Singarella Silvio Maximiliano,24.980.007,Charla de inducción de seguridad VGG/ALVEAR.,"APS-San Martin, Alvear, VGG",22/10/2026,-22,Vencido
+Singarella Silvio Maximiliano,24.980.007,Examen médico según las tareas/perfiles declaradas para el trabajador.,"APS-San Martin, Alvear, VGG",16/10/2026,-28,Vencido
+TESSI JUAN DIEGO,26380398,Charla de inducción de seguridad APS.,-,18/09/2026,-56,Vencido
+TESSI JUAN DIEGO,26380398,Copia del certificado de ART con nomina de personal y clausula de no repetición a favor de Cargill.,-,30/09/2026,-44,Vencido
+TRANI PABLO GERMAN,26750038,Charla de inducción de seguridad VGG/ALVEAR.,"APS-San Martin, Alvear, VGG",18/11/2026,5,Vencido
+VERON EMANUEL ALEJANDRO,34178173,Charla de inducción de seguridad VGG/ALVEAR.,"APS-San Martin, Alvear, VGG",21/11/2026,8,Vencido
