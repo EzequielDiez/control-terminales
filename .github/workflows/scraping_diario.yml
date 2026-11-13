@@ -27,18 +27,21 @@ jobs:
           playwright install --with-deps chromium
 
       - name: Ejecutar Scraper de COFCO
+        continue-on-error: true
         env:
           COFCO_USER: ${{ secrets.COFCO_USER }}
           COFCO_PASS: ${{ secrets.COFCO_PASS }}
         run: python scraper/cofco_scraper.py
 
       - name: Ejecutar Scraper de Cargill
+        continue-on-error: true
         env:
           CARGILL_USER: ${{ secrets.CARGILL_USER }}
           CARGILL_PASS: ${{ secrets.CARGILL_PASS }}
         run: python scraper/cargill_scraper.py
 
       - name: Ejecutar Scraper de Bunge
+        continue-on-error: true
         env:
           BUNGE_USER: ${{ secrets.BUNGE_USER }}
           BUNGE_PASS: ${{ secrets.BUNGE_PASS }}
