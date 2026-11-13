@@ -17,6 +17,7 @@ def ejecutar_scraping_cofco():
         browser = p.chromium.launch(headless=True)
         context = browser.new_context()
         page = context.new_page()
+        page.set_default_timeout(60000)
 
         print("1. Abriendo portal de COFCO...")
         page.goto(URL_LOGIN)
@@ -32,7 +33,7 @@ def ejecutar_scraping_cofco():
         print("2. Ingresando credenciales...")
         page.fill("#txtUsername", USUARIO)
         page.fill("#txtPassword", CONTRASEÑA)
-        page.click("#btnContinuar")
+        page.click("#btnContinuar", timeout=90000)
         page.wait_for_load_state("networkidle")
         time.sleep(3)
 
