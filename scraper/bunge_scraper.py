@@ -14,13 +14,55 @@ if not USUARIO_BUNGE or not CONTRASEÑA_BUNGE:
     raise ValueError("Error: No se encontraron las credenciales BUNGE_USER o BUNGE_PASS en las variables de entorno.")
 
 def calcular_dias_restantes(fecha_str):
-    """Devuelve los días hasta el vencimiento. Si no es una fecha válida (ej. 'Inhabilitado'), devuelve None."""
+    """Devuelve los días hasta el vencimiento. Si no es fecha válida, devuelve None."""
     try:
         fecha_vto = datetime.strptime(fecha_str.strip(), "%d/%m/%Y").date()
         hoy = datetime.now().date()
         return (fecha_vto - hoy).days
     except Exception:
         return None
+
+def extraer_tabla_recursos(page):
+    """Extrae filas y columnas de documentos desde #ctl00_ContentPlaceHolderMain_tbVencimientos."""
+    return page.evaluate("""() => {
+        const tbl = document.querySelector('#ctl00_ContentPlaceHolderMain_tbVencimientos');
+        if (!tbl) return [];
+        const rows = Array.from(tbl.querySelectorAll('tr'));
+        if (rows.length < 2) return [];
+        
+        const headers = Array.from(rows[0].querySelectorAll('th')).map(th => th.getAttribute('title') || th.innerText.trim());
+        let lista = [];
+        
+        for (let i = 1; i < rows.length; i++) {
+            const tds = Array.from(rows[i].querySelectorAll('td'));
+            if (tds.length < 3) continue;
+            
+            const id_recurso = tds[0].innerText.trim();
+            const nombre = tds[1].innerText.trim();
+            const estadoCol = tds[2].innerText.trim();
+            const rowId = rows[i].id || '';
+            const bgEstado = tds[2].style.backgroundColor || '';
+            
+            let docs = [];
+            for (let j = 3; j < tds.length; j++) {
+                docs.push({
+                    documento: headers[j] || 'Documento',
+                    valor: tds[j].innerText.trim(),
+                    bg: tds[j].style.backgroundColor || ''
+                });
+            }
+            
+            lista.push({
+                id_recurso: id_recurso,
+                nombre: nombre,
+                estado_col: estadoCol,
+                row_id: rowId,
+                bg_estado: bgEstado,
+                docs: docs
+            });
+        }
+        return lista;
+    }""")
 
 def ejecutar_scraping_bunge():
     os.makedirs("screenshots", exist_ok=True)
@@ -81,7 +123,9 @@ def ejecutar_scraping_bunge():
         print(f"5. Sectores/Plantas detectados: {[s['nombre'] for s in sectores]}")
 
         empleados_plantas = []
-        vencimientos_proximos = []
+        empresa_pendientes = []
+        trabajadores_pendientes = []
+        vehiculos_pendientes = []
 
         # -------------------------------------------------------------
         # 3. RECORRER CADA PLANTA (Muelle RAM y Muelles PSM)
@@ -91,7 +135,16 @@ def ejecutar_scraping_bunge():
             nombre_planta = sector["nombre"]
             print(f"   -> Consultando planta: {nombre_planta} (ID: {val_sector})...")
 
-            # Seleccionar sector en el select nativo y esperar a que termine cualquier postback/AJAX
+            # Asegurar tipo recurso = Personal ("0") antes de buscar
+            try:
+                cmb_tipo = page.locator("#ctl00_ContentPlaceHolderMain_cmbTipoRecurso")
+                if cmb_tipo.is_visible() and cmb_tipo.input_value() != "0":
+                    with page.expect_navigation(wait_until="networkidle", timeout=60000):
+                        cmb_tipo.select_option("0")
+                    time.sleep(1)
+            except Exception:
+                pass
+
             page.evaluate(f"""() => {{
                 const sel = document.querySelector('#ctl00_ContentPlaceHolderMain_cmbSector');
                 sel.value = '{val_sector}';
@@ -100,27 +153,23 @@ def ejecutar_scraping_bunge():
             time.sleep(1.5)
             page.wait_for_load_state("networkidle")
 
-            # Pulsar Buscar y esperar respuesta completa
             page.click("#ctl00_ContentPlaceHolderMain_btBuscar", timeout=90000)
             time.sleep(1.5)
             page.wait_for_load_state("networkidle")
 
-            # Cambiar paginación a 100 registros esperando la navegación del setTimeout(__doPostBack)
             try:
                 ddl_pages = page.locator("#ctl00_ContentPlaceHolderMain_ddlPages")
                 if ddl_pages.is_visible() and ddl_pages.input_value() != "100":
                     with page.expect_navigation(wait_until="networkidle", timeout=60000):
                         ddl_pages.select_option("100")
                     time.sleep(1.5)
-            except Exception as e_pag:
-                print(f"      Aviso paginación ({nombre_planta}): {e_pag}")
+            except Exception:
                 page.wait_for_load_state("networkidle")
                 time.sleep(2)
 
-            # Esperar a que la tabla de personal esté presente y estable en el DOM
             page.wait_for_selector("#ctl00_ContentPlaceHolderMain_tbVencimientos", timeout=30000)
 
-            # A) EXTRAER DOCUMENTACIÓN DE EMPRESA (#ctl00_ContentPlaceHolderMain_tbEstadoProveedor)
+            # A) DOCUMENTACIÓN DE EMPRESA (<= 15 días o vencido/rojo)
             docs_empresa = page.evaluate("""() => {
                 const tbl = document.querySelector('#ctl00_ContentPlaceHolderMain_tbEstadoProveedor');
                 if (!tbl) return [];
@@ -141,66 +190,26 @@ def ejecutar_scraping_bunge():
                 dias = calcular_dias_restantes(d["valor"])
                 es_rojo = "ffc7ce" in d["bg"].lower() or "red" in d["bg"].lower()
                 if es_rojo or (dias is not None and dias <= 15):
-                    estado_txt = "Vencido / Observado" if (es_rojo or (dias is not None and dias < 0)) else f"Por Vencer ({dias} días)"
-                    vencimientos_proximos.append({
-                        "planta": nombre_planta,
-                        "tipo": "Empresa",
-                        "nombre": "HL CONTROL SERVICES SA",
-                        "dni": "-",
+                    estado_txt = "Vencido" if (es_rojo or (dias is not None and dias < 0)) else "Por Vencer"
+                    empresa_pendientes.append({
+                        "nombre": "HL Control Services",
                         "documento": d["documento"],
+                        "planta": nombre_planta,
                         "vencimiento": d["valor"],
                         "dias_restantes": dias if dias is not None else -1,
                         "estado": estado_txt
                     })
 
-            # B) EXTRAER PERSONAL Y SUS DOCUMENTOS (#ctl00_ContentPlaceHolderMain_tbVencimientos)
-            datos_personal = page.evaluate("""() => {
-                const tbl = document.querySelector('#ctl00_ContentPlaceHolderMain_tbVencimientos');
-                if (!tbl) return [];
-                const rows = Array.from(tbl.querySelectorAll('tr'));
-                if (rows.length < 2) return [];
-                
-                const headers = Array.from(rows[0].querySelectorAll('th')).map(th => th.getAttribute('title') || th.innerText.trim());
-                let lista = [];
-                
-                for (let i = 1; i < rows.length; i++) {
-                    const tds = Array.from(rows[i].querySelectorAll('td'));
-                    if (tds.length < 3) continue;
-                    
-                    const dni = tds[0].innerText.trim();
-                    const nombre = tds[1].innerText.trim();
-                    const estadoCol = tds[2].innerText.trim();
-                    const rowId = rows[i].id || '';
-                    const bgEstado = tds[2].style.backgroundColor || '';
-                    
-                    let docs = [];
-                    for (let j = 3; j < tds.length; j++) {
-                        docs.push({
-                            documento: headers[j] || 'Documento',
-                            valor: tds[j].innerText.trim(),
-                            bg: tds[j].style.backgroundColor || ''
-                        });
-                    }
-                    
-                    lista.push({
-                        dni: dni,
-                        nombre: nombre,
-                        estado_col: estadoCol,
-                        row_id: rowId,
-                        bg_estado: bgEstado,
-                        docs: docs
-                    });
-                }
-                return lista;
-            }""")
+            # B) PERSONAL Y SUS DOCUMENTOS (<= 15 días o vencido/rojo)
+            datos_personal = extraer_tabla_recursos(page)
 
             for emp in datos_personal:
                 es_hab = ("habilitado" in emp["row_id"].lower() and "inabilitado" not in emp["row_id"].lower()) or ("c6efce" in emp["bg_estado"].lower())
-                
+
                 empleados_plantas.append({
                     "planta": nombre_planta,
                     "nombre": emp["nombre"],
-                    "dni": emp["dni"],
+                    "dni": emp["id_recurso"],
                     "cuil": "",
                     "estado_color": "lightgreen" if es_hab else "lightcoral",
                     "vigencia_hasta": emp["estado_col"]
@@ -210,35 +219,72 @@ def ejecutar_scraping_bunge():
                     dias = calcular_dias_restantes(doc["valor"])
                     es_rojo = "ffc7ce" in doc["bg"].lower() or "red" in doc["bg"].lower()
                     if es_rojo or (dias is not None and dias <= 15):
-                        estado_txt = "Vencido / Inhabilitado" if (es_rojo or (dias is not None and dias < 0)) else f"Por Vencer ({dias} días)"
-                        vencimientos_proximos.append({
-                            "planta": nombre_planta,
-                            "tipo": "Personal",
+                        estado_txt = "Vencido" if (es_rojo or (dias is not None and dias < 0)) else "Por Vencer"
+                        trabajadores_pendientes.append({
                             "nombre": emp["nombre"],
-                            "dni": emp["dni"],
+                            "dni": emp["id_recurso"],
                             "documento": doc["documento"],
+                            "planta": nombre_planta,
                             "vencimiento": doc["valor"],
                             "dias_restantes": dias if dias is not None else -1,
                             "estado": estado_txt
                         })
 
-        # Ordenar alfabéticamente y guardar CSVs
-        df_emp = pd.DataFrame(empleados_plantas)
-        if df_emp.empty:
-            df_emp = pd.DataFrame(columns=["planta", "nombre", "dni", "cuil", "estado_color", "vigencia_hasta"])
-        else:
-            df_emp = df_emp.sort_values(by=["planta", "nombre"], key=lambda col: col.str.lower()).reset_index(drop=True)
-        df_emp.to_csv("bunge_empleados_plantas.csv", index=False, encoding="utf-8-sig")
+            # C) VEHÍCULOS / MÁQUINAS (cambiar cmbTipoRecurso a "2" y buscar)
+            try:
+                cmb_tipo = page.locator("#ctl00_ContentPlaceHolderMain_cmbTipoRecurso")
+                if cmb_tipo.is_visible():
+                    with page.expect_navigation(wait_until="networkidle", timeout=60000):
+                        cmb_tipo.select_option("2")
+                    time.sleep(1)
 
-        df_vtos = pd.DataFrame(vencimientos_proximos)
-        if df_vtos.empty:
-            df_vtos = pd.DataFrame(columns=["planta", "tipo", "nombre", "dni", "documento", "vencimiento", "dias_restantes", "estado"])
-        else:
-            df_vtos = df_vtos.sort_values(by=["dias_restantes", "nombre"]).reset_index(drop=True)
-        df_vtos.to_csv("bunge_vencimientos_proximos.csv", index=False, encoding="utf-8-sig")
+                    page.click("#ctl00_ContentPlaceHolderMain_btBuscar", timeout=90000)
+                    time.sleep(1.5)
+                    page.wait_for_load_state("networkidle")
+
+                    if page.locator("#ctl00_ContentPlaceHolderMain_tbVencimientos").is_visible():
+                        datos_vehiculos = extraer_tabla_recursos(page)
+                        for veh in datos_vehiculos:
+                            datos_auto = f"{veh['nombre']} ({veh['id_recurso']})".strip() if veh['id_recurso'] else veh['nombre']
+                            for doc in veh["docs"]:
+                                dias = calcular_dias_restantes(doc["valor"])
+                                es_rojo = "ffc7ce" in doc["bg"].lower() or "red" in doc["bg"].lower()
+                                if es_rojo or (dias is not None and dias <= 15):
+                                    estado_txt = "Vencido" if (es_rojo or (dias is not None and dias < 0)) else "Por Vencer"
+                                    vehiculos_pendientes.append({
+                                        "nombre": datos_auto,
+                                        "documento": doc["documento"],
+                                        "planta": nombre_planta,
+                                        "vencimiento": doc["valor"],
+                                        "dias_restantes": dias if dias is not None else -1,
+                                        "estado": estado_txt
+                                    })
+            except Exception as e_veh:
+                print(f"      Aviso vehículos ({nombre_planta}): {e_veh}")
+
+        # Guardar CSVs ordenados alfabéticamente
+        df_emp_plantas = pd.DataFrame(empleados_plantas, columns=["planta", "nombre", "dni", "cuil", "estado_color", "vigencia_hasta"])
+        if not df_emp_plantas.empty:
+            df_emp_plantas = df_emp_plantas.sort_values(by=["planta", "nombre"], key=lambda col: col.str.lower()).reset_index(drop=True)
+        df_emp_plantas.to_csv("bunge_empleados_plantas.csv", index=False, encoding="utf-8-sig")
+
+        df_emp_pend = pd.DataFrame(empresa_pendientes, columns=["nombre", "documento", "planta", "vencimiento", "dias_restantes", "estado"])
+        if not df_emp_pend.empty:
+            df_emp_pend = df_emp_pend.sort_values(by="documento", key=lambda col: col.str.lower()).reset_index(drop=True)
+        df_emp_pend.to_csv("bunge_empresa_pendientes.csv", index=False, encoding="utf-8-sig")
+
+        df_trab_pend = pd.DataFrame(trabajadores_pendientes, columns=["nombre", "dni", "documento", "planta", "vencimiento", "dias_restantes", "estado"])
+        if not df_trab_pend.empty:
+            df_trab_pend = df_trab_pend.sort_values(by=["nombre", "documento"], key=lambda col: col.str.lower()).reset_index(drop=True)
+        df_trab_pend.to_csv("bunge_trabajadores_pendientes.csv", index=False, encoding="utf-8-sig")
+
+        df_veh_pend = pd.DataFrame(vehiculos_pendientes, columns=["nombre", "documento", "planta", "vencimiento", "dias_restantes", "estado"])
+        if not df_veh_pend.empty:
+            df_veh_pend = df_veh_pend.sort_values(by=["nombre", "documento"], key=lambda col: col.str.lower()).reset_index(drop=True)
+        df_veh_pend.to_csv("bunge_vehiculos_pendientes.csv", index=False, encoding="utf-8-sig")
 
         browser.close()
-        print(f"¡Scraping de Bunge finalizado! ({len(df_emp)} registros de personal, {len(df_vtos)} alertas <= 15 días)")
+        print(f"¡Bunge finalizado! Empresa: {len(df_emp_pend)} | Trabajadores: {len(df_trab_pend)} | Vehículos: {len(df_veh_pend)}")
 
 if __name__ == "__main__":
     ejecutar_scraping_bunge()
