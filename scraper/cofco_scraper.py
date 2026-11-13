@@ -1,16 +1,35 @@
 import os
+import re
 import time
+from datetime import datetime, timedelta
 import pandas as pd
 from playwright.sync_api import sync_playwright
 
 URL_LOGIN = "https://soluciones-us.abssa.net/NID/GS/WEB/index.aspx?enc=gW5mxPA936+SDqSGbzIqijm+O64SoDpI1PmUJjcBYdg="
 
-# Lee automáticamente las variables de entorno de tu Codespace de forma segura
 USUARIO = os.getenv("COFCO_USER")
 CONTRASEÑA = os.getenv("COFCO_PASS")
 
 if not USUARIO or not CONTRASEÑA:
     raise ValueError("Error: No se encontraron las credenciales COFCO_USER o COFCO_PASS en las variables de entorno.")
+
+def parsear_dias_y_fecha(dias_str):
+    """Convierte dias_por_vencer de ABSSA a entero y estima la fecha de vencimiento."""
+    hoy = datetime.now().date()
+    limpio = str(dias_str).strip()
+    if limpio.lstrip("-").isdigit():
+        dias = int(limpio)
+        fecha_vto = (hoy + timedelta(days=dias)).strftime("%d/%m/%Y")
+        return dias, fecha_vto
+    return None, "-"
+
+def normalizar_estado(estado_raw, dias):
+    est = str(estado_raw).strip()
+    if "vencid" in est.lower() or (dias is not None and dias < 0):
+        return "Vencido"
+    if "por vencer" in est.lower() or (dias is not None and 0 <= dias <= 15):
+        return "Por Vencer"
+    return est if est else "Pendiente"
 
 def ejecutar_scraping_cofco():
     with sync_playwright() as p:
@@ -22,7 +41,6 @@ def ejecutar_scraping_cofco():
         print("1. Abriendo portal de COFCO...")
         page.goto(URL_LOGIN)
 
-        # Aceptar cookies
         try:
             if page.locator("#barraaceptacion").is_visible():
                 page.evaluate("PonerCookie()")
@@ -37,7 +55,6 @@ def ejecutar_scraping_cofco():
         page.wait_for_load_state("networkidle")
         time.sleep(3)
 
-        # Remover modal de soporte
         try:
             page.evaluate("""() => {
                 const modal = document.getElementById('modalSoporte');
@@ -48,7 +65,7 @@ def ejecutar_scraping_cofco():
         except Exception:
             pass
 
-        print("3. Extrayendo Documentación Vencida/por Vencer (Grilla Principal)...")
+        print("3. Extrayendo Documentación Pendiente / Vencida...")
         try:
             page.wait_for_selector("#ctl00_MainContent_verdetxvenc", state="attached", timeout=10000)
             page.click("#ctl00_MainContent_verdetxvenc", force=True)
@@ -75,7 +92,7 @@ def ejecutar_scraping_cofco():
                         return;
                     }
                     const cols = row.querySelectorAll('td');
-                    if(cols.length >= 7) {
+                    if (cols.length >= 7) {
                         data.push({
                             categoria: currentCorte,
                             tipo_requerimiento: cols[0] ? cols[0].innerText.trim() : '',
@@ -96,15 +113,11 @@ def ejecutar_scraping_cofco():
                     page.click("#ctl00_MainContent_btnSiguiente")
                     page.wait_for_load_state("networkidle")
                     time.sleep(1.5)
-                except:
+                except Exception:
                     break
             pagina_actual += 1
 
-        df_pendientes = pd.DataFrame(todos_los_pendientes)
-        df_pendientes.to_csv("cofco_pendientes.csv", index=False, encoding="utf-8-sig")
-
-        print("4. Extrayendo Estado por Plantas (con reseteo de página por cada planta)...")
-        
+        print("4. Extrayendo Estado por Plantas...")
         plantas_a_recorrer = [
             {"rubro": "59", "planta": "1804", "nombre_planta": "TIMBUES"},
             {"rubro": "70", "planta": "25", "nombre_planta": "ACEITERA GYO"},
@@ -116,35 +129,31 @@ def ejecutar_scraping_cofco():
         for item in plantas_a_recorrer:
             print(f"Consultando planta: {item['nombre_planta']}...")
             try:
-                # Cada vez que cambiamos de planta, volvemos a entrar a la sección de empleados de cero
                 page.goto("https://soluciones-us.abssa.net/NID/GS/WEB/gs_contratista_resumen.aspx?ID=526")
                 page.wait_for_load_state("networkidle")
-                
+
                 try:
                     page.click("#ctl00_MainContent_btnver")
                     page.wait_for_load_state("networkidle")
-                except:
+                except Exception:
                     pass
 
-                # Seleccionamos rubro y planta
                 page.select_option("#ctl00_MainContent_cmbRubro", item["rubro"])
                 page.wait_for_timeout(500)
                 page.select_option("#ctl00_MainContent_cmbPlantas", item["planta"])
                 page.wait_for_timeout(500)
-                
-                # Clic en buscar
+
                 page.click("#ctl00_MainContent_btnBuscar")
                 page.wait_for_load_state("networkidle")
                 time.sleep(2)
 
-                # Bucle para recorrer todas las páginas de empleados de esta planta desde la página 1
                 while True:
                     empleados_pagina = page.evaluate(f"""() => {{
                         const rows = document.querySelectorAll('#ctl00_MainContent_DGEmpDet tr');
                         let data = [];
                         rows.forEach(row => {{
                             const cols = row.querySelectorAll('td');
-                            if(cols.length >= 3) {{
+                            if (cols.length >= 3) {{
                                 let colorFondo = cols[cols.length - 1].style.backgroundColor || '';
                                 data.push({{
                                     planta: "{item['nombre_planta']}",
@@ -159,7 +168,6 @@ def ejecutar_scraping_cofco():
                     }}""")
                     todos_los_empleados_plantas.extend(empleados_pagina)
 
-                    # Verificar si existe un botón de siguiente página disponible para empleados
                     try:
                         btn_sig = page.locator("#ctl00_MainContent_btnSiguiente")
                         if btn_sig.is_visible() and btn_sig.is_enabled():
@@ -168,7 +176,7 @@ def ejecutar_scraping_cofco():
                             time.sleep(1.5)
                         else:
                             break
-                    except:
+                    except Exception:
                         break
 
             except Exception as ex:
@@ -176,9 +184,82 @@ def ejecutar_scraping_cofco():
 
         browser.close()
 
+        # Guardar nómina por plantas (para Dashboard Global)
         df_empleados = pd.DataFrame(todos_los_empleados_plantas)
+        if df_empleados.empty:
+            df_empleados = pd.DataFrame(columns=["planta", "nombre", "dni", "cuil", "estado_color"])
+        else:
+            df_empleados = df_empleados.sort_values(by=["planta", "nombre"], key=lambda col: col.str.lower()).reset_index(drop=True)
         df_empleados.to_csv("cofco_empleados_plantas.csv", index=False, encoding="utf-8-sig")
-        print(f"¡Proceso completo! Se guardaron {len(todos_los_empleados_plantas)} registros totales en 'cofco_empleados_plantas.csv'.")
+
+        # Diccionario Nombre -> DNI para cruzar en pendientes de trabajadores
+        mapa_dni = {}
+        for _, r in df_empleados.iterrows():
+            nom_key = str(r["nombre"]).strip().upper()
+            if nom_key and str(r["dni"]).strip():
+                mapa_dni[nom_key] = str(r["dni"]).strip()
+
+        # Clasificar pendientes en Empresa, Trabajadores y Vehículos con esquema unificado
+        emp_list, trab_list, veh_list = [], [], []
+
+        for item in todos_los_pendientes:
+            cat = item["categoria"]
+            doc = item["tipo_requerimiento"]
+            planta = item["plantas"] if item["plantas"] else "-"
+            dias, fecha_vto = parsear_dias_y_fecha(item["dias_por_vencer"])
+            estado_norm = normalizar_estado(item["estado"], dias)
+
+            # Extraer nombre entre paréntesis: ej. "Documentos del Empleado (ACOSTA MAXIMILIANO)"
+            match_paren = re.search(r"\(([^)]+)\)", cat)
+            entidad_nombre = match_paren.group(1).strip() if match_paren else cat.strip()
+
+            cat_lower = cat.lower()
+            if "empresa" in cat_lower:
+                emp_list.append({
+                    "nombre": "HL Control Services",
+                    "documento": doc,
+                    "planta": planta,
+                    "vencimiento": fecha_vto,
+                    "dias_restantes": dias,
+                    "estado": estado_norm
+                })
+            elif "veh" in cat_lower or "rodado" in cat_lower or "equip" in cat_lower or "maquin" in cat_lower:
+                veh_list.append({
+                    "nombre": entidad_nombre,
+                    "documento": doc,
+                    "planta": planta,
+                    "vencimiento": fecha_vto,
+                    "dias_restantes": dias,
+                    "estado": estado_norm
+                })
+            else:
+                dni_encontrado = mapa_dni.get(entidad_nombre.upper(), "-")
+                trab_list.append({
+                    "nombre": entidad_nombre,
+                    "dni": dni_encontrado,
+                    "documento": doc,
+                    "planta": planta,
+                    "vencimiento": fecha_vto,
+                    "dias_restantes": dias,
+                    "estado": estado_norm
+                })
+
+        df_emp_out = pd.DataFrame(emp_list, columns=["nombre", "documento", "planta", "vencimiento", "dias_restantes", "estado"])
+        if not df_emp_out.empty:
+            df_emp_out = df_emp_out.sort_values(by="documento", key=lambda c: c.str.lower()).reset_index(drop=True)
+        df_emp_out.to_csv("cofco_empresa_pendientes.csv", index=False, encoding="utf-8-sig")
+
+        df_trab_out = pd.DataFrame(trab_list, columns=["nombre", "dni", "documento", "planta", "vencimiento", "dias_restantes", "estado"])
+        if not df_trab_out.empty:
+            df_trab_out = df_trab_out.sort_values(by=["nombre", "documento"], key=lambda c: c.str.lower()).reset_index(drop=True)
+        df_trab_out.to_csv("cofco_trabajadores_pendientes.csv", index=False, encoding="utf-8-sig")
+
+        df_veh_out = pd.DataFrame(veh_list, columns=["nombre", "documento", "planta", "vencimiento", "dias_restantes", "estado"])
+        if not df_veh_out.empty:
+            df_veh_out = df_veh_out.sort_values(by=["nombre", "documento"], key=lambda c: c.str.lower()).reset_index(drop=True)
+        df_veh_out.to_csv("cofco_vehiculos_pendientes.csv", index=False, encoding="utf-8-sig")
+
+        print(f"¡COFCO finalizado! Empresa: {len(df_emp_out)} | Trabajadores: {len(df_trab_out)} | Vehículos: {len(df_veh_out)}")
 
 if __name__ == "__main__":
     ejecutar_scraping_cofco()
