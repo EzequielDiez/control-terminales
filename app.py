@@ -90,6 +90,11 @@ if st.sidebar.button("👉 **DASHBOARD**" if is_dash_active else "DASHBOARD", ke
     st.session_state['pagina_activa'] = 'Dashboard'
     st.rerun()
 
+is_vtos_active = st.session_state['pagina_activa'] == 'Vencimientos'
+if st.sidebar.button("👉 **PRÓXIMOS VENCIMIENTOS**" if is_vtos_active else "PRÓXIMOS VENCIMIENTOS", key="btn_vtos"):
+    st.session_state['pagina_activa'] = 'Vencimientos'
+    st.rerun()
+
 st.sidebar.markdown("<div style='margin-top: 10px; margin-bottom: 4px; font-weight: 700; font-size: 0.85rem; color: #555;'>TERMINALES</div>", unsafe_allow_html=True)
 
 is_cargill_active = st.session_state['pagina_activa'] == 'Cargill'
@@ -281,6 +286,77 @@ def construir_indice_empleados(fuentes_plantas, fuentes_pendientes):
     df_docs_global = pd.DataFrame(registros_docs)
 
     return lista_etiquetas, mapa_etiqueta_a_clave, df_estado_global, df_docs_global
+
+def cargar_todos_los_vencimientos():
+    """Consolida todos los documentos pendientes/vencidos de Empresa, Trabajadores y Vehículos de las 3 terminales."""
+    terminales_cfg = [
+        ("cargill", "CARGILL (PRONEXO)"),
+        ("cofco", "COFCO (ABSSA)"),
+        ("bunge", "BUNGE (CONTROL DOCUMENTARIO)")
+    ]
+    categorias_cfg = [
+        ("empresa_pendientes", "Empresa"),
+        ("trabajadores_pendientes", "Trabajador"),
+        ("vehiculos_pendientes", "Vehículo")
+    ]
+
+    filas = []
+    for prefijo, nombre_term in terminales_cfg:
+        for sufijo, nombre_cat in categorias_cfg:
+            ruta = f"{prefijo}_{sufijo}.csv"
+            if not os.path.exists(ruta):
+                continue
+            df_tmp = corregir_estados_df(pd.read_csv(ruta))
+            if df_tmp.empty:
+                continue
+
+            for _, r in df_tmp.iterrows():
+                val_dias = r.get('dias_restantes', None)
+                if pd.notna(val_dias) and str(val_dias).replace("-", "").replace(".", "").isdigit():
+                    dias_num = int(float(val_dias))
+                    dias_vis = dias_num
+                else:
+                    # Sin fecha definida (ej. Pendiente sin presentar): ordenar después de los vencidos/urgentes
+                    dias_num = 99999
+                    dias_vis = "-"
+
+                vto_str = str(r.get('vencimiento', '-')).strip()
+                if not vto_str or vto_str.lower() == "nan":
+                    vto_str = "-"
+
+                # Clave secundaria de fecha real YYYYMMDD para desempatar
+                fecha_sort = "99999999"
+                try:
+                    partes = vto_str.split("/")
+                    if len(partes) == 3:
+                        fecha_sort = f"{partes[2]}{partes[1].zfill(2)}{partes[0].zfill(2)}"
+                except Exception:
+                    pass
+
+                dni_val = str(r.get('dni', '-')).strip() if 'dni' in df_tmp.columns else "-"
+                if not dni_val or dni_val.lower() == "nan":
+                    dni_val = "-"
+
+                filas.append({
+                    "terminal": nombre_term,
+                    "categoria": nombre_cat,
+                    "nombre": limpiar_texto_nombre(r.get('nombre', '-')),
+                    "dni": dni_val,
+                    "documento": str(r.get('documento', '-')).strip(),
+                    "planta": str(r.get('planta', '-')).strip(),
+                    "vencimiento": vto_str,
+                    "dias_restantes": dias_vis,
+                    "estado": str(r.get('estado', '-')).strip(),
+                    "_dias_sort": dias_num,
+                    "_fecha_sort": fecha_sort
+                })
+
+    if not filas:
+        return pd.DataFrame()
+
+    df_all = pd.DataFrame(filas)
+    df_all = df_all.sort_values(by=["_dias_sort", "_fecha_sort", "terminal", "nombre"], ascending=[True, True, True, True]).reset_index(drop=True)
+    return df_all
 
 # =====================================================================
 # FUNCIÓN UNIFICADA PARA RENDERIZAR CADA TERMINAL
@@ -504,9 +580,6 @@ if st.session_state['pagina_activa'] == 'Dashboard':
 
     tab_dash1, tab_dash2 = st.tabs(["🏢 Vista por Terminal y Planta", "👷‍♂️ Consulta Individual por Empleado"])
 
-    # -----------------------------------------------------------------
-    # PESTAÑA 1: VISTA POR TERMINAL Y PLANTA (SIN CAMPO DE BÚSQUEDA)
-    # -----------------------------------------------------------------
     with tab_dash1:
         d_col1, d_col2 = st.columns(2)
         with d_col1:
@@ -605,9 +678,6 @@ if st.session_state['pagina_activa'] == 'Dashboard':
         else:
             st.info("👆 Seleccione una **Terminal** y una **Planta / Instalación** en los desplegables superiores.")
 
-    # -----------------------------------------------------------------
-    # PESTAÑA 2: CONSULTA INDIVIDUAL POR EMPLEADO (UNIFICADA)
-    # -----------------------------------------------------------------
     with tab_dash2:
         fuentes_plantas = [
             ("CARGILL (PRONEXO)", df_emp_cargill),
@@ -686,6 +756,76 @@ if st.session_state['pagina_activa'] == 'Dashboard':
                         st.success("🎉 ¡Sin documentación vencida, pendiente ni próxima a vencer!")
         else:
             st.info("No hay datos de empleados cargados todavía.")
+
+# =====================================================================
+# SECCIÓN: PRÓXIMOS VENCIMIENTOS (CONSOLIDADO GLOBAL ORDENADO POR FECHA)
+# =====================================================================
+elif st.session_state['pagina_activa'] == 'Vencimientos':
+    st.subheader("⏳ Próximos Vencimientos y Documentación Pendiente")
+
+    df_todos_vtos = cargar_todos_los_vencimientos()
+
+    if not df_todos_vtos.empty:
+        total_docs = len(df_todos_vtos)
+        total_vencidos = contar_vencidos(df_todos_vtos)
+        total_por_vencer = total_docs - total_vencidos
+
+        v1, v2, v3 = st.columns(3)
+        v1.metric("Total Documentos Pendientes", total_docs)
+        v2.metric("🔴 Vencidos / Sin Presentar", total_vencidos)
+        v3.metric("🟡 Por Vencer (Vigentes)", total_por_vencer)
+
+        st.markdown("<hr style='margin: 10px 0px;'>", unsafe_allow_html=True)
+
+        f1, f2, f3, f4 = st.columns([1.2, 1.1, 1.1, 1.4])
+        with f1:
+            terms_disp = df_todos_vtos['terminal'].unique().tolist()
+            sel_terms = st.multiselect("Terminal:", options=terms_disp, default=terms_disp, key="vto_f_term")
+        with f2:
+            cats_disp = df_todos_vtos['categoria'].unique().tolist()
+            sel_cats = st.multiselect("Categoría:", options=cats_disp, default=cats_disp, key="vto_f_cat")
+        with f3:
+            ests_disp = df_todos_vtos['estado'].unique().tolist()
+            sel_ests = st.multiselect("Estado:", options=ests_disp, default=ests_disp, key="vto_f_est")
+        with f4:
+            busq_vto = st.text_input("🔍 Buscar nombre, DNI o documento:", key="vto_f_busq", placeholder="Filtrar...")
+
+        df_v_f = df_todos_vtos[
+            df_todos_vtos['terminal'].isin(sel_terms) &
+            df_todos_vtos['categoria'].isin(sel_cats) &
+            df_todos_vtos['estado'].isin(sel_ests)
+        ].copy()
+
+        if busq_vto:
+            df_v_f = df_v_f[
+                df_v_f['nombre'].astype(str).str.contains(busq_vto, case=False, na=False) |
+                df_v_f['dni'].astype(str).str.contains(busq_vto, case=False, na=False) |
+                df_v_f['documento'].astype(str).str.contains(busq_vto, case=False, na=False) |
+                df_v_f['planta'].astype(str).str.contains(busq_vto, case=False, na=False)
+            ]
+
+        cols_vtos_vis = {
+            "terminal": "Terminal",
+            "categoria": "Categoría",
+            "nombre": "Nombre",
+            "dni": "DNI",
+            "documento": "Documento",
+            "planta": "Planta",
+            "vencimiento": "Vencimiento",
+            "dias_restantes": "Días restantes",
+            "estado": "Estado"
+        }
+        df_v_mostrar = df_v_f[list(cols_vtos_vis.keys())].rename(columns=cols_vtos_vis)
+
+        st.dataframe(df_v_mostrar, use_container_width=True, hide_index=True, height=420)
+        st.download_button(
+            "📥 Descargar Listado Consolidado de Vencimientos",
+            data=df_v_mostrar.to_csv(index=False).encode('utf-8-sig'),
+            file_name="proximos_vencimientos_consolidado.csv",
+            mime="text/csv"
+        )
+    else:
+        st.success("✅ ¡Excelente! No hay documentos vencidos ni próximos a vencer en ninguna terminal.")
 
 # =====================================================================
 # SECCIONES DE TERMINALES (USANDO EL COMPONENTE UNIFICADO)
