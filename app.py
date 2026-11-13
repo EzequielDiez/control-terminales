@@ -116,12 +116,31 @@ if st.sidebar.button("🔄 Actualizar Todos los Datos", key="btn_global_scraping
     disparar_github_actions()
 
 # =====================================================================
-# FUNCIÓN UNIFICADA PARA RENDERIZAR CADA TERMINAL
+# FUNCIONES UNIFICADAS PARA TERMINALES
 # =====================================================================
+def corregir_estados_df(df):
+    """Asegura que si los días restantes son >= 0 figure como 'Por Vencer' y no 'Vencido'."""
+    if df.empty:
+        return df
+    df_c = df.copy()
+    if 'dias_restantes' in df_c.columns and 'estado' in df_c.columns:
+        def ajustar_fila(row):
+            val_dias = row['dias_restantes']
+            est_actual = str(row['estado']).strip()
+            if pd.notna(val_dias) and str(val_dias).replace("-", "").replace(".", "").isdigit():
+                d = int(float(val_dias))
+                if d >= 0 and "vencid" in est_actual.lower():
+                    return "Por Vencer"
+            return est_actual
+        df_c['estado'] = df_c.apply(ajustar_fila, axis=1)
+    return df_c
+
 def contar_vencidos(df):
+    """Cuenta como vencidos tanto los 'Vencido' como los 'Pendiente' (sin presentar / sin fecha)."""
     if df.empty or 'estado' not in df.columns:
         return 0
-    return int(df['estado'].astype(str).str.contains("vencid", case=False, na=False).sum())
+    est_s = df['estado'].astype(str).str.lower()
+    return int((est_s.str.contains("vencid", na=False) | est_s.str.contains("pendient", na=False)).sum())
 
 def formatear_tabla_visual(df, columnas_map):
     df_show = df.copy()
@@ -146,22 +165,26 @@ def renderizar_panel_terminal(prefijo_csv, titulo_terminal):
     f_emp = f"{prefijo_csv}_empresa_pendientes.csv"
     f_trab = f"{prefijo_csv}_trabajadores_pendientes.csv"
     f_veh = f"{prefijo_csv}_vehiculos_pendientes.csv"
+    f_plantas = f"{prefijo_csv}_empleados_plantas.csv"
 
-    if not (os.path.exists(f_emp) or os.path.exists(f_trab) or os.path.exists(f_veh)):
+    if not (os.path.exists(f_emp) or os.path.exists(f_trab) or os.path.exists(f_veh) or os.path.exists(f_plantas)):
         st.warning(f"⚠️ No se encontraron archivos actualizados para {titulo_terminal}. Ejecute el scraper.")
         return
 
-    df_emp = pd.read_csv(f_emp) if os.path.exists(f_emp) else pd.DataFrame()
-    df_trab = pd.read_csv(f_trab) if os.path.exists(f_trab) else pd.DataFrame()
-    df_veh = pd.read_csv(f_veh) if os.path.exists(f_veh) else pd.DataFrame()
+    df_emp = corregir_estados_df(pd.read_csv(f_emp)) if os.path.exists(f_emp) else pd.DataFrame()
+    df_trab = corregir_estados_df(pd.read_csv(f_trab)) if os.path.exists(f_trab) else pd.DataFrame()
+    df_veh = corregir_estados_df(pd.read_csv(f_veh)) if os.path.exists(f_veh) else pd.DataFrame()
+    df_plantas = pd.read_csv(f_plantas) if os.path.exists(f_plantas) else pd.DataFrame()
 
-    # Asegurar orden alfabético por nombre
+    # Orden alfabético por nombre
     if not df_emp.empty and 'nombre' in df_emp.columns:
         df_emp = df_emp.sort_values(by=['nombre', 'documento'], key=lambda c: c.astype(str).str.lower()).reset_index(drop=True)
     if not df_trab.empty and 'nombre' in df_trab.columns:
         df_trab = df_trab.sort_values(by=['nombre', 'documento'], key=lambda c: c.astype(str).str.lower()).reset_index(drop=True)
     if not df_veh.empty and 'nombre' in df_veh.columns:
         df_veh = df_veh.sort_values(by=['nombre', 'documento'], key=lambda c: c.astype(str).str.lower()).reset_index(drop=True)
+    if not df_plantas.empty and 'nombre' in df_plantas.columns:
+        df_plantas = df_plantas.sort_values(by=['planta', 'nombre'], key=lambda c: c.astype(str).str.lower()).reset_index(drop=True)
 
     # Métricas superiores unificadas
     pend_emp = len(df_emp)
@@ -189,10 +212,11 @@ def renderizar_panel_terminal(prefijo_csv, titulo_terminal):
 
     st.markdown("<hr style='margin: 10px 0px;'>", unsafe_allow_html=True)
 
-    # Pestañas unificadas
+    # Pestañas unificadas (incluyendo Habilitados / Inhabilitados)
     nombres_tabs = ["🏢 Pendientes Empresa", "👷‍♂️ Pendientes Trabajadores"]
     if hay_vehiculos:
         nombres_tabs.append("🚛 Pendientes Vehículos")
+    nombres_tabs.append("🛡️ Habilitados / Inhabilitados")
 
     tabs = st.tabs(nombres_tabs)
 
@@ -258,7 +282,8 @@ def renderizar_panel_terminal(prefijo_csv, titulo_terminal):
         else:
             st.success("✅ No hay documentos pendientes de trabajadores.")
 
-    # TAB 3: PENDIENTES VEHÍCULOS (solo si existen registros)
+    # TAB 3 (opcional): PENDIENTES VEHÍCULOS
+    idx_tab_estado = 2
     if hay_vehiculos:
         with tabs[2]:
             cols_veh = {
@@ -278,6 +303,48 @@ def renderizar_panel_terminal(prefijo_csv, titulo_terminal):
                 mime="text/csv",
                 key=f"dl_veh_{prefijo_csv}"
             )
+        idx_tab_estado = 3
+
+    # ÚLTIMA TAB: HABILITADOS / INHABILITADOS POR PLANTA
+    with tabs[idx_tab_estado]:
+        if not df_plantas.empty:
+            f_p1, f_p2, f_p3 = st.columns([1.2, 1.2, 1.6])
+            with f_p1:
+                plantas_disp = df_plantas['planta'].dropna().unique().tolist()
+                filtro_planta = st.multiselect("Planta / Instalación:", options=plantas_disp, default=plantas_disp, key=f"f_planta_hab_{prefijo_csv}")
+            with f_p2:
+                filtro_hab = st.multiselect("Estado:", options=["🟢 Habilitado", "🔴 Inhabilitado"], default=["🟢 Habilitado", "🔴 Inhabilitado"], key=f"f_est_hab_{prefijo_csv}")
+            with f_p3:
+                busq_hab = st.text_input("🔍 Buscar empleado (nombre o DNI):", key=f"f_busq_hab_{prefijo_csv}", placeholder="Filtrar...")
+
+            df_p_f = df_plantas[df_plantas['planta'].isin(filtro_planta)].copy()
+            df_p_f['Estado'] = df_p_f['estado_color'].apply(lambda x: "🟢 Habilitado" if 'lightgreen' in str(x).lower() else "🔴 Inhabilitado")
+            df_p_f = df_p_f[df_p_f['Estado'].isin(filtro_hab)]
+
+            if busq_hab:
+                df_p_f = df_p_f[
+                    df_p_f['nombre'].astype(str).str.contains(busq_hab, case=False, na=False) |
+                    df_p_f['dni'].astype(str).str.contains(busq_hab, case=False, na=False)
+                ]
+
+            cols_base = {'nombre': 'Nombre', 'dni': 'DNI', 'planta': 'Planta'}
+            if 'servicio' in df_p_f.columns:
+                cols_base['servicio'] = 'Servicio'
+            if 'vigencia_hasta' in df_p_f.columns:
+                cols_base['vigencia_hasta'] = 'Vigencia hasta'
+            cols_base['Estado'] = 'Estado'
+
+            df_p_vis = df_p_f[list(cols_base.keys())].rename(columns=cols_base)
+            st.dataframe(df_p_vis, use_container_width=True, hide_index=True, height=350)
+            st.download_button(
+                f"📥 Descargar Habilitados/Inhabilitados ({titulo_terminal})",
+                data=df_p_vis.to_csv(index=False).encode('utf-8-sig'),
+                file_name=f"{prefijo_csv}_habilitados_inhabilitados.csv",
+                mime="text/csv",
+                key=f"dl_hab_{prefijo_csv}"
+            )
+        else:
+            st.info("No hay registros de habilitación por planta para esta terminal.")
 
 # =====================================================================
 # SECCIÓN: DASHBOARD GENERAL
