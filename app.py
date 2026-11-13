@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import pandas as pd
 import os
 import re
@@ -124,15 +123,10 @@ if st.sidebar.button("🔄 Actualizar Todos los Datos", key="btn_global_scraping
     disparar_github_actions()
 
 # =====================================================================
-# HELPERS DE OUTLOOK, WHATSAPP, TARJETA VISUAL HTML Y UNIFICACIÓN
+# HELPERS DE OUTLOOK, WHATSAPP Y UNIFICACIÓN DE EMPLEADOS
 # =====================================================================
 def construir_mensajes_envio(terminal, planta, df_hab, df_inhab):
-    """
-    Genera:
-      1. mailto_url: enlace directo a Outlook con emojis y estructura clara.
-      2. whatsapp_url: enlace directo a WhatsApp Web/Desktop para elegir contacto o grupo.
-      3. html_visual: tarjeta HTML con tablas verde/rojo lista para copiar y pegar en Outlook.
-    """
+    """Genera los enlaces mailto: (Outlook) y api.whatsapp.com (WhatsApp) formateados."""
     total = len(df_hab) + len(df_inhab)
     asunto = f"Estado de Habilitaciones - {terminal} / {planta}"
 
@@ -184,7 +178,7 @@ def construir_mensajes_envio(terminal, planta, df_hab, df_inhab):
     ])
     mailto_url = f"mailto:?subject={quote(asunto)}&body={quote(chr(13) + chr(10)).join([quote(l) for l in lineas_mail])}"
 
-    # --- 2. TEXTO PARA WHATSAPP (con negritas y emojis) ---
+    # --- 2. TEXTO PARA WHATSAPP ---
     lineas_wa = [
         f"*📋 ESTADO DE HABILITACIONES*",
         f"🏭 *Terminal:* {terminal}",
@@ -219,85 +213,7 @@ def construir_mensajes_envio(terminal, planta, df_hab, df_inhab):
     texto_wa = "\n".join(lineas_wa)
     whatsapp_url = f"https://api.whatsapp.com/send?text={quote(texto_wa)}"
 
-    # --- 3. TARJETA HTML VISUAL (VERDE / ROJO PARA PEGAR EN OUTLOOK) ---
-    filas_hab_html = ""
-    if not df_hab.empty:
-        for _, r in df_hab.iterrows():
-            nom = str(r.get('nombre', '-')).strip()
-            dni = str(r.get('dni', '-')).strip()
-            detalle = "-"
-            if 'vigencia_hasta' in r and pd.notna(r['vigencia_hasta']) and str(r['vigencia_hasta']).strip():
-                detalle = str(r['vigencia_hasta']).strip()
-            elif 'servicio' in r and pd.notna(r['servicio']) and str(r['servicio']).strip():
-                detalle = str(r['servicio']).strip()
-            filas_hab_html += f"""
-            <tr style="background-color:#f0fdf4; border-bottom:1px solid #bbf7d0;">
-                <td style="padding:6px 10px; font-weight:600; color:#14532d;">{nom}</td>
-                <td style="padding:6px 10px; color:#166534;">{dni}</td>
-                <td style="padding:6px 10px; color:#166534;">{detalle}</td>
-                <td style="padding:6px 10px; text-align:center;">
-                    <span style="background-color:#22c55e; color:#ffffff; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:bold;">HABILITADO</span>
-                </td>
-            </tr>
-            """
-    else:
-        filas_hab_html = '<tr><td colspan="4" style="padding:8px; color:#6b7280;">Sin personal habilitado.</td></tr>'
-
-    filas_inhab_html = ""
-    if not df_inhab.empty:
-        for _, r in df_inhab.iterrows():
-            nom = str(r.get('nombre', '-')).strip()
-            dni = str(r.get('dni', '-')).strip()
-            detalle = str(r['servicio']).strip() if ('servicio' in r and pd.notna(r['servicio']) and str(r['servicio']).strip()) else "-"
-            filas_inhab_html += f"""
-            <tr style="background-color:#fef2f2; border-bottom:1px solid #fecaca;">
-                <td style="padding:6px 10px; font-weight:600; color:#7f1d1d;">{nom}</td>
-                <td style="padding:6px 10px; color:#991b1b;">{dni}</td>
-                <td style="padding:6px 10px; color:#991b1b;">{detalle}</td>
-                <td style="padding:6px 10px; text-align:center;">
-                    <span style="background-color:#ef4444; color:#ffffff; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:bold;">INHABILITADO</span>
-                </td>
-            </tr>
-            """
-    else:
-        filas_inhab_html = '<tr><td colspan="4" style="padding:8px; color:#166534;">¡Todo el personal está habilitado!</td></tr>'
-
-    html_visual = f"""
-    <div id="reporte-copiable" style="font-family:'Segoe UI', Arial, sans-serif; color:#1f2937; max-width:820px; background:#ffffff; padding:14px; border:1px solid #e5e7eb; border-radius:8px;">
-        <div style="background:#0f172a; color:#ffffff; padding:12px 16px; border-radius:6px; margin-bottom:12px;">
-            <div style="font-size:16px; font-weight:bold;">⚓ Estado de Habilitaciones — {terminal}</div>
-            <div style="font-size:13px; color:#cbd5e1; margin-top:2px;">Planta / Instalación: <strong>{planta}</strong> &nbsp;|&nbsp; Total: <strong>{total}</strong> (🟢 {len(df_hab)} Habilitados / 🔴 {len(df_inhab)} Inhabilitados)</div>
-        </div>
-
-        <div style="font-size:14px; font-weight:bold; color:#15803d; margin:10px 0 4px 0;">🟢 HABILITADOS ({len(df_hab)})</div>
-        <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:14px;">
-            <thead>
-                <tr style="background-color:#16a34a; color:#ffffff; text-align:left;">
-                    <th style="padding:7px 10px;">Nombre</th>
-                    <th style="padding:7px 10px;">DNI</th>
-                    <th style="padding:7px 10px;">Detalle / Vigencia</th>
-                    <th style="padding:7px 10px; text-align:center;">Estado</th>
-                </tr>
-            </thead>
-            <tbody>{filas_hab_html}</tbody>
-        </table>
-
-        <div style="font-size:14px; font-weight:bold; color:#b91c1c; margin:10px 0 4px 0;">🔴 INHABILITADOS ({len(df_inhab)})</div>
-        <table style="width:100%; border-collapse:collapse; font-size:12px;">
-            <thead>
-                <tr style="background-color:#dc2626; color:#ffffff; text-align:left;">
-                    <th style="padding:7px 10px;">Nombre</th>
-                    <th style="padding:7px 10px;">DNI</th>
-                    <th style="padding:7px 10px;">Detalle</th>
-                    <th style="padding:7px 10px; text-align:center;">Estado</th>
-                </tr>
-            </thead>
-            <tbody>{filas_inhab_html}</tbody>
-        </table>
-    </div>
-    """
-
-    return mailto_url, whatsapp_url, html_visual
+    return mailto_url, whatsapp_url
 
 def limpiar_dni(val):
     if pd.isna(val):
@@ -788,8 +704,8 @@ if st.session_state['pagina_activa'] == 'Dashboard':
             df_hab = df_filtrado[df_filtrado['Estado'] == "Habilitado"].copy()
             df_inhab = df_filtrado[df_filtrado['Estado'] == "Inhabilitado"].copy()
 
-            # Generar enlaces para Outlook, WhatsApp y Tarjeta Visual HTML
-            mailto_outlook, url_whatsapp, html_tarjeta = construir_mensajes_envio(term_elegida, planta_elegida, df_hab, df_inhab)
+            # Generar enlaces para Outlook y WhatsApp
+            mailto_outlook, url_whatsapp = construir_mensajes_envio(term_elegida, planta_elegida, df_hab, df_inhab)
 
             m_col1, m_col2, m_col3, m_col4, m_col5, m_col6 = st.columns([0.8, 0.8, 0.8, 1.0, 1.0, 1.0])
             m_col1.metric("Total", len(df_filtrado))
@@ -818,32 +734,6 @@ if st.session_state['pagina_activa'] == 'Dashboard':
                     url=url_whatsapp,
                     use_container_width=True
                 )
-
-            # Desplegable con botón de copiado con colores Verde/Rojo para pegar directo en Outlook
-            with st.expander("🎨 Copiar formato visual con colores (Verde / Rojo) para pegar en Outlook"):
-                altura_iframe = min(520, max(220, (len(df_hab) + len(df_inhab)) * 34 + 170))
-                html_con_boton = f"""
-                <div style="font-family:'Segoe UI', Arial, sans-serif;">
-                    <button id="btn-copiar-html" onclick="copiarTabla()" style="background:#2563eb; color:white; border:none; padding:8px 16px; border-radius:6px; font-weight:600; cursor:pointer; margin-bottom:10px; font-size:13px;">
-                        📋 Copiar tabla con colores para pegar en Outlook (Ctrl+V)
-                    </button>
-                    <span id="msg-copiado" style="margin-left:10px; color:#15803d; font-weight:600; font-size:13px; display:none;">✅ ¡Copiado! Ahora pega (Ctrl+V) en tu correo de Outlook.</span>
-                    {html_tarjeta}
-                </div>
-                <script>
-                function copiarTabla() {{
-                    const el = document.getElementById('reporte-copiable');
-                    const range = document.createRange();
-                    range.selectNode(el);
-                    window.getSelection().removeAllRanges();
-                    window.getSelection().addRange(range);
-                    document.execCommand('copy');
-                    window.getSelection().removeAllRanges();
-                    document.getElementById('msg-copiado').style.display = 'inline';
-                }}
-                </script>
-                """
-                components.html(html_con_boton, height=altura_iframe, scrolling=True)
 
             st.markdown("<hr style='margin: 10px 0px;'>", unsafe_allow_html=True)
 
