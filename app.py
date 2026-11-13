@@ -174,18 +174,12 @@ def formatear_tabla_visual(df, columnas_map):
 def construir_indice_empleados(fuentes_plantas, fuentes_pendientes):
     """
     Unifica los empleados de las 3 terminales por DNI limpio (y respaldo por nombre).
-    Devuelve:
-      - lista_etiquetas: ["ACOSTA MAXIMILIANO DANIEL (DNI: 39948360)", ...] ordenada alfabéticamente
-      - mapa_etiqueta_a_clave: {etiqueta: clave_unica}
-      - df_estado_global: DataFrame con [clave, terminal, planta, estado, detalle_extra]
-      - df_docs_global: DataFrame con [clave, terminal, planta, documento, vencimiento, dias_restantes, estado]
     """
     registros_estado = []
     registros_docs = []
-    nombres_por_dni = {}      # dni_limpio -> set de nombres
-    dni_por_nombre_aprox = {} # clave_nombre -> dni_limpio
+    nombres_por_dni = {}
+    dni_por_nombre_aprox = {}
 
-    # 1. Recolectar nóminas por planta
     for nombre_term, df_p in fuentes_plantas:
         if df_p.empty:
             continue
@@ -218,7 +212,6 @@ def construir_indice_empleados(fuentes_plantas, fuentes_pendientes):
                 "detalle": extra if extra else "-"
             })
 
-    # 2. Recolectar documentos pendientes / vencidos de trabajadores
     for nombre_term, df_t in fuentes_pendientes:
         if df_t.empty:
             continue
@@ -251,10 +244,8 @@ def construir_indice_empleados(fuentes_plantas, fuentes_pendientes):
                 "estado": str(row.get('estado', '-')).strip()
             })
 
-    # 3. Elegir el nombre más completo por cada DNI
     nombre_canonico_dni = {}
     for dni_c, set_noms in nombres_por_dni.items():
-        # El nombre más largo suele incluir segundo nombre o apellido completo
         mejor_nombre = sorted(set_noms, key=lambda x: (-len(x), x))[0]
         nombre_canonico_dni[dni_c] = mejor_nombre
 
@@ -270,7 +261,6 @@ def construir_indice_empleados(fuentes_plantas, fuentes_pendientes):
     for r in registros_docs:
         r["clave"] = asignar_clave(r["dni_c"], r["c_aprox"], r["nom_raw"])
 
-    # 4. Construir opciones del desplegable
     claves_unicas = {}
     for r in registros_estado + registros_docs:
         cl = r["clave"]
@@ -283,7 +273,6 @@ def construir_indice_empleados(fuentes_plantas, fuentes_pendientes):
                 etiqueta = f"{r['nom_raw']} (Sin DNI)"
             claves_unicas[cl] = (nombre_canonico_dni.get(cl.split(":", 1)[1], r["nom_raw"]) if cl.startswith("DNI:") else r["nom_raw"], etiqueta)
 
-    # Ordenar alfabéticamente por nombre canónico
     items_ordenados = sorted(claves_unicas.items(), key=lambda x: x[1][0])
     lista_etiquetas = [item[1][1] for item in items_ordenados]
     mapa_etiqueta_a_clave = {item[1][1]: item[0] for item in items_ordenados}
@@ -516,10 +505,10 @@ if st.session_state['pagina_activa'] == 'Dashboard':
     tab_dash1, tab_dash2 = st.tabs(["🏢 Vista por Terminal y Planta", "👷‍♂️ Consulta Individual por Empleado"])
 
     # -----------------------------------------------------------------
-    # PESTAÑA 1: VISTA POR TERMINAL Y PLANTA
+    # PESTAÑA 1: VISTA POR TERMINAL Y PLANTA (SIN CAMPO DE BÚSQUEDA)
     # -----------------------------------------------------------------
     with tab_dash1:
-        d_col1, d_col2, d_col3 = st.columns([1.2, 1.2, 1.6])
+        d_col1, d_col2 = st.columns(2)
         with d_col1:
             terminales_disp = ["Seleccione Terminal..."]
             if not df_emp_cargill.empty:
@@ -541,9 +530,6 @@ if st.session_state['pagina_activa'] == 'Dashboard':
                 plantas_disp = []
             planta_elegida = st.selectbox("Planta / Instalación", options=["Seleccione Planta..."] + plantas_disp)
 
-        with d_col3:
-            busq_dash = st.text_input("🔍 Buscar empleado (nombre o DNI)", placeholder="Filtrar en tiempo real...")
-
         if term_elegida != "Seleccione Terminal..." and planta_elegida != "Seleccione Planta...":
             if term_elegida == "COFCO (ABSSA)":
                 df_target = df_emp_cofco
@@ -561,12 +547,6 @@ if st.session_state['pagina_activa'] == 'Dashboard':
                 return "Habilitado" if 'lightgreen' in str(val).lower() else "Inhabilitado"
 
             df_filtrado['Estado'] = df_filtrado['estado_color'].apply(formatear_estado)
-
-            if busq_dash:
-                df_filtrado = df_filtrado[
-                    df_filtrado['nombre'].str.contains(busq_dash, case=False, na=False) |
-                    df_filtrado['dni'].astype(str).str.contains(busq_dash, case=False, na=False)
-                ]
 
             df_hab = df_filtrado[df_filtrado['Estado'] == "Habilitado"].copy()
             df_inhab = df_filtrado[df_filtrado['Estado'] == "Inhabilitado"].copy()
@@ -608,7 +588,7 @@ if st.session_state['pagina_activa'] == 'Dashboard':
                         height=altura_hab
                     )
                 else:
-                    st.info("No hay personal habilitado con los filtros actuales.")
+                    st.info("No hay personal habilitado en esta planta.")
 
             with col_der:
                 st.markdown(f"#### 🔴 Inhabilitados ({len(df_inhab)})")
@@ -659,7 +639,6 @@ if st.session_state['pagina_activa'] == 'Dashboard':
                 cant_inhab = len(df_est_emp[df_est_emp['estado'] == "🔴 Inhabilitado"]) if not df_est_emp.empty else 0
                 cant_docs = len(df_docs_emp)
 
-                # Banner de veredicto general
                 if cant_inhab == 0 and cant_docs == 0 and cant_hab > 0:
                     st.success(f"✅ **{emp_elegido}** se encuentra **HABILITADO EN TODAS LAS TERMINALES Y PLANTAS** registradas ({cant_hab} instalaciones).")
                 elif cant_inhab > 0:
