@@ -29,6 +29,7 @@ def ejecutar_scraping_bunge():
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(viewport={"width": 1366, "height": 768})
         page = context.new_page()
+        page.set_default_timeout(60000)
 
         # -------------------------------------------------------------
         # 1. LOGIN Y SELECCIÓN DE PERFIL BUNGE
@@ -40,13 +41,12 @@ def ejecutar_scraping_bunge():
         print("2. Ingresando credenciales...")
         page.fill("#lgLogin_UserName", USUARIO_BUNGE)
         page.fill("#lgLogin_Password", CONTRASEÑA_BUNGE)
-        page.click("#lgLogin_LoginButton")
+        page.click("#lgLogin_LoginButton", timeout=90000)
         page.wait_for_load_state("networkidle")
         time.sleep(2)
 
         if page.locator("#pnPerfiles").is_visible():
             print("3. Seleccionando perfil BUNGE...")
-            # Buscar opción que contenga BUNGE si hay varias
             opciones = page.locator("#ddlPerfiles_ddlCompanies option").all()
             for opt in opciones:
                 texto = opt.inner_text()
@@ -55,7 +55,7 @@ def ejecutar_scraping_bunge():
                     page.select_option("#ddlPerfiles_ddlCompanies", val)
                     break
             if page.locator("#btEntrar").is_visible():
-                page.click("#btEntrar")
+                page.click("#btEntrar", timeout=90000)
                 page.wait_for_load_state("networkidle")
                 time.sleep(2)
 
@@ -64,13 +64,12 @@ def ejecutar_scraping_bunge():
         # -------------------------------------------------------------
         print("4. Navegando a la solapa Vencimientos...")
         if page.locator("#ctl00_ctl20_hlVencimientos").is_visible():
-            page.click("#ctl00_ctl20_hlVencimientos")
+            page.click("#ctl00_ctl20_hlVencimientos", timeout=90000)
         else:
             page.goto(URL_VENCIMIENTOS)
         page.wait_for_load_state("networkidle")
         time.sleep(2)
 
-        # Obtener las plantas/sectores disponibles en el desplegable
         sectores = page.evaluate("""() => {
             const sel = document.querySelector('#ctl00_ContentPlaceHolderMain_cmbSector');
             if (!sel) return [];
@@ -92,29 +91,34 @@ def ejecutar_scraping_bunge():
             nombre_planta = sector["nombre"]
             print(f"   -> Consultando planta: {nombre_planta} (ID: {val_sector})...")
 
-            # Seleccionar sector en el select nativo (compatible con Select2) y disparar change
+            # Seleccionar sector en el select nativo y esperar a que termine cualquier postback/AJAX
             page.evaluate(f"""() => {{
                 const sel = document.querySelector('#ctl00_ContentPlaceHolderMain_cmbSector');
                 sel.value = '{val_sector}';
                 sel.dispatchEvent(new Event('change', {{ bubbles: true }}));
             }}""")
-            time.sleep(1)
-
-            # Pulsar Buscar
-            page.click("#ctl00_ContentPlaceHolderMain_btBuscar")
+            time.sleep(1.5)
             page.wait_for_load_state("networkidle")
-            time.sleep(2)
 
-            # Asegurar que muestre hasta 100 registros por página si existe el paginador
+            # Pulsar Buscar y esperar respuesta completa
+            page.click("#ctl00_ContentPlaceHolderMain_btBuscar", timeout=90000)
+            time.sleep(1.5)
+            page.wait_for_load_state("networkidle")
+
+            # Cambiar paginación a 100 registros esperando la navegación del setTimeout(__doPostBack)
             try:
-                if page.locator("#ctl00_ContentPlaceHolderMain_ddlPages").is_visible():
-                    val_actual = page.locator("#ctl00_ContentPlaceHolderMain_ddlPages").input_value()
-                    if val_actual != "100":
-                        page.select_option("#ctl00_ContentPlaceHolderMain_ddlPages", "100")
-                        page.wait_for_load_state("networkidle")
-                        time.sleep(2)
-            except Exception:
-                pass
+                ddl_pages = page.locator("#ctl00_ContentPlaceHolderMain_ddlPages")
+                if ddl_pages.is_visible() and ddl_pages.input_value() != "100":
+                    with page.expect_navigation(wait_until="networkidle", timeout=60000):
+                        ddl_pages.select_option("100")
+                    time.sleep(1.5)
+            except Exception as e_pag:
+                print(f"      Aviso paginación ({nombre_planta}): {e_pag}")
+                page.wait_for_load_state("networkidle")
+                time.sleep(2)
+
+            # Esperar a que la tabla de personal esté presente y estable en el DOM
+            page.wait_for_selector("#ctl00_ContentPlaceHolderMain_tbVencimientos", timeout=30000)
 
             # A) EXTRAER DOCUMENTACIÓN DE EMPRESA (#ctl00_ContentPlaceHolderMain_tbEstadoProveedor)
             docs_empresa = page.evaluate("""() => {
@@ -136,7 +140,6 @@ def ejecutar_scraping_bunge():
             for d in docs_empresa:
                 dias = calcular_dias_restantes(d["valor"])
                 es_rojo = "ffc7ce" in d["bg"].lower() or "red" in d["bg"].lower()
-                # Filtrar: solo vencidos, rechazados/inhabilitados o que venzan en <= 15 días
                 if es_rojo or (dias is not None and dias <= 15):
                     estado_txt = "Vencido / Observado" if (es_rojo or (dias is not None and dias < 0)) else f"Por Vencer ({dias} días)"
                     vencimientos_proximos.append({
@@ -203,7 +206,6 @@ def ejecutar_scraping_bunge():
                     "vigencia_hasta": emp["estado_col"]
                 })
 
-                # Revisar documentos individuales del empleado (solo <= 15 días o vencidos/rojos)
                 for doc in emp["docs"]:
                     dias = calcular_dias_restantes(doc["valor"])
                     es_rojo = "ffc7ce" in doc["bg"].lower() or "red" in doc["bg"].lower()
