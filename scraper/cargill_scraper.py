@@ -28,10 +28,14 @@ def calcular_dias_pronexo(fecha_str):
 
 def normalizar_estado(estado_raw, dias):
     est = str(estado_raw).strip()
-    if "vencid" in est.lower() or "rechaz" in est.lower() or (dias is not None and dias < 0):
-        return "Vencido"
-    if dias is not None and 0 <= dias <= 15:
+    # Si tiene fecha válida, la fecha define si está vencido o por vencer
+    if dias is not None:
+        if dias < 0:
+            return "Vencido"
         return "Por Vencer"
+    # Si no tiene fecha, evaluamos el texto del portal
+    if "vencid" in est.lower() or "rechaz" in est.lower():
+        return "Vencido"
     return est if est else "Pendiente"
 
 def ejecutar_scraping_cargill():
