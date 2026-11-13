@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import requests
 import base64
+import json
 
 # Configuración de la página
 st.set_page_config(
@@ -171,6 +172,23 @@ if st.sidebar.button("👉 **Próximamente (Otras Terminales)**" if is_prox_acti
 st.sidebar.markdown("<hr>", unsafe_allow_html=True)
 if st.sidebar.button("🔄 Actualizar Todos los Datos", key="btn_global_scraping"):
     disparar_github_actions()
+
+# Estado y última actualización de cada scraper
+if os.path.exists("estado_scrapers.json"):
+    try:
+        with open("estado_scrapers.json", "r", encoding="utf-8") as f:
+            estado_scr = json.load(f)
+
+        st.sidebar.markdown("<br>", unsafe_allow_html=True)
+        st.sidebar.markdown("**ESTADO DE ACTUALIZACIÓN**")
+        for term in ["COFCO", "Cargill", "Bunge"]:
+            info = estado_scr.get(term, {})
+            icono = "🟢" if info.get("ok") else "🔴"
+            texto_estado = "OK" if info.get("ok") else "Error"
+            fecha_txt = info.get("fecha", "Sin datos")
+            st.sidebar.caption(f"{icono} **{term}** ({texto_estado}) — {fecha_txt}")
+    except Exception:
+        pass
 
 # =====================================================================
 # SECCIÓN: DASHBOARD GENERAL
