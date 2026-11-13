@@ -5,6 +5,7 @@ import re
 import requests
 import base64
 import json
+from urllib.parse import quote
 
 # Configuración de la página
 st.set_page_config(
@@ -122,26 +123,77 @@ if st.sidebar.button("🔄 Actualizar Todos los Datos", key="btn_global_scraping
     disparar_github_actions()
 
 # =====================================================================
-# HELPERS DE NORMALIZACIÓN Y UNIFICACIÓN DE EMPLEADOS
+# HELPERS DE NORMALIZACIÓN, OUTLOOK Y UNIFICACIÓN DE EMPLEADOS
 # =====================================================================
+def generar_enlace_outlook(terminal, planta, df_hab, df_inhab):
+    """Construye una URL mailto: con el asunto y cuerpo formateado para Outlook."""
+    asunto = f"Estado de Habilitaciones - {terminal} / {planta}"
+
+    lineas = [
+        f"Hola,",
+        f"",
+        f"Comparto el estado actualizado del personal para {terminal} - Planta: {planta}:",
+        f"Total en planta: {len(df_hab) + len(df_inhab)} | Habilitados: {len(df_hab)} | Inhabilitados: {len(df_inhab)}",
+        f"",
+        f"==========================================",
+        f"HABILITADOS ({len(df_hab)})",
+        f"=========================================="
+    ]
+
+    if not df_hab.empty:
+        for _, r in df_hab.iterrows():
+            nom = str(r.get('nombre', '-')).strip()
+            dni = str(r.get('dni', '-')).strip()
+            extra = ""
+            if 'vigencia_hasta' in r and pd.notna(r['vigencia_hasta']) and str(r['vigencia_hasta']).strip():
+                extra = f" | Vigencia: {r['vigencia_hasta']}"
+            elif 'servicio' in r and pd.notna(r['servicio']) and str(r['servicio']).strip():
+                extra = f" | Servicio: {r['servicio']}"
+            lineas.append(f"- {nom} (DNI: {dni}){extra}")
+    else:
+        lineas.append("- Sin personal habilitado.")
+
+    lineas.extend([
+        f"",
+        f"==========================================",
+        f"INHABILITADOS ({len(df_inhab)})",
+        f"=========================================="
+    ])
+
+    if not df_inhab.empty:
+        for _, r in df_inhab.iterrows():
+            nom = str(r.get('nombre', '-')).strip()
+            dni = str(r.get('dni', '-')).strip()
+            extra = ""
+            if 'servicio' in r and pd.notna(r['servicio']) and str(r['servicio']).strip():
+                extra = f" | Servicio: {r['servicio']}"
+            lineas.append(f"- {nom} (DNI: {dni}){extra}")
+    else:
+        lineas.append("- Sin personal inhabilitado.")
+
+    lineas.extend([
+        f"",
+        f"Saludos,",
+        f"HL Control Services S.A."
+    ])
+
+    cuerpo = "\r\n".join(lineas)
+    return f"mailto:?subject={quote(asunto)}&body={quote(cuerpo)}"
+
 def limpiar_dni(val):
-    """Extrae solo los dígitos del DNI para cruzar sin errores de puntos o espacios."""
     if pd.isna(val):
         return ""
     solo_digitos = re.sub(r"\D", "", str(val))
     return solo_digitos if len(solo_digitos) >= 6 else ""
 
 def limpiar_texto_nombre(nombre):
-    """Normaliza espacios y mayúsculas de un nombre."""
     return re.sub(r"\s+", " ", str(nombre)).strip().upper()
 
 def clave_nombre_aprox(nombre):
-    """Genera una clave ordenada por tokens (ej. 'ACOSTA MAXIMILIANO') para respaldo sin DNI."""
     tokens = [t for t in re.sub(r"[^A-ZÁÉÍÓÚÑ\s]", "", limpiar_texto_nombre(nombre)).split() if len(t) > 1]
     return " ".join(sorted(tokens[:2])) if tokens else ""
 
 def corregir_estados_df(df):
-    """Asegura que si los días restantes son >= 0 figure como 'Por Vencer' y no 'Vencido'."""
     if df.empty:
         return df
     df_c = df.copy()
@@ -158,7 +210,6 @@ def corregir_estados_df(df):
     return df_c
 
 def contar_vencidos(df):
-    """Cuenta como vencidos tanto los 'Vencido' como los 'Pendiente' (sin presentar / sin fecha)."""
     if df.empty or 'estado' not in df.columns:
         return 0
     est_s = df['estado'].astype(str).str.lower()
@@ -177,9 +228,6 @@ def formatear_tabla_visual(df, columnas_map):
     return df_show
 
 def construir_indice_empleados(fuentes_plantas, fuentes_pendientes):
-    """
-    Unifica los empleados de las 3 terminales por DNI limpio (y respaldo por nombre).
-    """
     registros_estado = []
     registros_docs = []
     nombres_por_dni = {}
@@ -288,7 +336,6 @@ def construir_indice_empleados(fuentes_plantas, fuentes_pendientes):
     return lista_etiquetas, mapa_etiqueta_a_clave, df_estado_global, df_docs_global
 
 def cargar_todos_los_vencimientos():
-    """Consolida todos los documentos pendientes/vencidos de Empresa, Trabajadores y Vehículos de las 3 terminales."""
     terminales_cfg = [
         ("cargill", "CARGILL (PRONEXO)"),
         ("cofco", "COFCO (ABSSA)"),
@@ -316,7 +363,6 @@ def cargar_todos_los_vencimientos():
                     dias_num = int(float(val_dias))
                     dias_vis = dias_num
                 else:
-                    # Sin fecha definida (ej. Pendiente sin presentar): ordenar después de los vencidos/urgentes
                     dias_num = 99999
                     dias_vis = "-"
 
@@ -324,7 +370,6 @@ def cargar_todos_los_vencimientos():
                 if not vto_str or vto_str.lower() == "nan":
                     vto_str = "-"
 
-                # Clave secundaria de fecha real YYYYMMDD para desempatar
                 fecha_sort = "99999999"
                 try:
                     partes = vto_str.split("/")
@@ -624,17 +669,27 @@ if st.session_state['pagina_activa'] == 'Dashboard':
             df_hab = df_filtrado[df_filtrado['Estado'] == "Habilitado"].copy()
             df_inhab = df_filtrado[df_filtrado['Estado'] == "Inhabilitado"].copy()
 
-            m_col1, m_col2, m_col3, m_col4 = st.columns([1, 1, 1, 1.3])
+            # Generar enlace mailto: preparado para Outlook
+            mailto_outlook = generar_enlace_outlook(term_elegida, planta_elegida, df_hab, df_inhab)
+
+            m_col1, m_col2, m_col3, m_col4, m_col5 = st.columns([0.9, 0.9, 0.9, 1.15, 1.15])
             m_col1.metric("Total en Planta", len(df_filtrado))
             m_col2.metric("🟢 Habilitados", len(df_hab))
             m_col3.metric("🔴 Inhabilitados", len(df_inhab))
             with m_col4:
                 st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
                 st.download_button(
-                    f"📥 Descargar CSV ({planta_elegida})",
+                    "📥 Descargar CSV",
                     data=df_filtrado.to_csv(index=False).encode('utf-8-sig'),
                     file_name=f"dashboard_{prefijo_csv}_{planta_elegida}.csv",
                     mime="text/csv",
+                    use_container_width=True
+                )
+            with m_col5:
+                st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
+                st.link_button(
+                    "✉️ Enviar por Outlook",
+                    url=mailto_outlook,
                     use_container_width=True
                 )
 
