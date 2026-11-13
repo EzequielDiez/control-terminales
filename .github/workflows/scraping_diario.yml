@@ -27,6 +27,7 @@ jobs:
           playwright install --with-deps chromium
 
       - name: Ejecutar Scraper de COFCO
+        id: step_cofco
         continue-on-error: true
         env:
           COFCO_USER: ${{ secrets.COFCO_USER }}
@@ -34,6 +35,7 @@ jobs:
         run: python scraper/cofco_scraper.py
 
       - name: Ejecutar Scraper de Cargill
+        id: step_cargill
         continue-on-error: true
         env:
           CARGILL_USER: ${{ secrets.CARGILL_USER }}
@@ -41,18 +43,41 @@ jobs:
         run: python scraper/cargill_scraper.py
 
       - name: Ejecutar Scraper de Bunge
+        id: step_bunge
         continue-on-error: true
         env:
           BUNGE_USER: ${{ secrets.BUNGE_USER }}
           BUNGE_PASS: ${{ secrets.BUNGE_PASS }}
         run: python scraper/bunge_scraper.py
 
+      - name: Registrar estado y fecha de última ejecución
+        env:
+          OUTCOME_COFCO: ${{ steps.step_cofco.outcome }}
+          OUTCOME_CARGILL: ${{ steps.step_cargill.outcome }}
+          OUTCOME_BUNGE: ${{ steps.step_bunge.outcome }}
+        run: |
+          python -c "
+          import json, os
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+
+          ahora = datetime.now(ZoneInfo('America/Argentina/Buenos_Aires')).strftime('%d/%m/%Y %H:%M hs')
+          estado = {
+              'ultima_ejecucion': ahora,
+              'COFCO': {'ok': os.getenv('OUTCOME_COFCO') == 'success', 'fecha': ahora},
+              'Cargill': {'ok': os.getenv('OUTCOME_CARGILL') == 'success', 'fecha': ahora},
+              'Bunge': {'ok': os.getenv('OUTCOME_BUNGE') == 'success', 'fecha': ahora}
+          }
+          with open('estado_scrapers.json', 'w', encoding='utf-8') as f:
+              json.dump(estado, f, ensure_ascii=False, indent=2)
+          "
+
       - name: Guardar y subir datos actualizados
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add *.csv screenshots/*.png
-          git commit -m "Auto-actualización de datos CSV y capturas" || exit 0
+          git add *.csv estado_scrapers.json
+          git commit -m "Auto-actualización de datos CSV y estado" || exit 0
           git push
 
       - name: Mantener activa la webapp de Streamlit
