@@ -42,10 +42,11 @@ def disparar_github_actions():
         except Exception as e:
             st.error(f"❌ Error de conexión con GitHub: {e}")
 
-# Estilos CSS
+# Estilos CSS optimizados (compactos para evitar scroll en el sidebar)
 st.markdown("""
     <style>
     .block-container { padding-top: 3.2rem; padding-bottom: 1rem; }
+    [data-testid="stSidebar"] > div:first-child { padding-top: 1.2rem; }
     h1 { font-size: 1.8rem !important; margin-bottom: 0px !important; }
     h3 { font-size: 1.2rem !important; margin-top: 5px !important; }
     .stMetric { background-color: #f8f9fa; padding: 8px 12px; border-radius: 6px; border: 1px solid #e9ecef; }
@@ -55,9 +56,9 @@ st.markdown("""
         text-align: left;
         border: none;
         background-color: transparent;
-        padding: 6px 10px;
-        margin: 2px 0px;
-        font-size: 1rem;
+        padding: 5px 8px;
+        margin: 1px 0px;
+        font-size: 0.92rem;
         border-radius: 4px;
         color: #31333F;
     }
@@ -71,23 +72,19 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Pre-carga de logos en Base64
+# Pre-carga del logo de HL en Base64
 b64_hl = get_base64_img("assets/logoHL.png")
-b64_cofco = get_base64_img("assets/logoCOFCO.png")
-b64_cargill = get_base64_img("assets/logoCARGILL.png")
-b64_bunge = get_base64_img("assets/logoBUNGE.png")
 
 # Logo HL en sidebar
 if b64_hl:
     st.sidebar.markdown(
-        f'<img src="data:image/png;base64,{b64_hl}" style="width: 190px; height: auto; margin-bottom: 10px;">',
+        f'<img src="data:image/png;base64,{b64_hl}" style="width: 175px; height: auto; margin-bottom: 8px;">',
         unsafe_allow_html=True
     )
 else:
     st.sidebar.markdown("### 🏢 HL Control Services")
 
-st.sidebar.title("Navegación")
-st.sidebar.markdown("<br>", unsafe_allow_html=True)
+st.sidebar.markdown("### Navegación")
 
 if 'pagina_activa' not in st.session_state:
     st.session_state['pagina_activa'] = 'Dashboard'
@@ -98,103 +95,59 @@ if st.sidebar.button("👉 **DASHBOARD**" if is_dash_active else "DASHBOARD", ke
     st.session_state['pagina_activa'] = 'Dashboard'
     st.rerun()
 
-st.sidebar.markdown("<br>", unsafe_allow_html=True)
-st.sidebar.markdown("**TERMINALES**")
+st.sidebar.markdown("<div style='margin-top: 10px; margin-bottom: 4px; font-weight: 700; font-size: 0.85rem; color: #555;'>TERMINALES</div>", unsafe_allow_html=True)
 
-# Opción COFCO con su logo en la barra lateral
-is_cofco_active = st.session_state['pagina_activa'] == 'COFCO'
-if b64_cofco:
-    sb_c1, sb_c2 = st.sidebar.columns([1.4, 1])
-    with sb_c1:
-        borde_cofco = "border-left: 3px solid #ff4b4b; padding-left: 6px;" if is_cofco_active else "padding-left: 9px;"
-        st.markdown(
-            f'<div style="display:flex; align-items:center; height:38px; {borde_cofco}">'
-            f'<img src="data:image/png;base64,{b64_cofco}" style="max-height: 28px; max-width: 110px; object-fit: contain;">'
-            f'</div>',
-            unsafe_allow_html=True
-        )
-    with sb_c2:
-        if st.button("**Activo**" if is_cofco_active else "Ver ▸", key="btn_cofco"):
-            st.session_state['pagina_activa'] = 'COFCO'
-            st.rerun()
-else:
-    if st.sidebar.button("👉 **COFCO**" if is_cofco_active else "- COFCO", key="btn_cofco"):
-        st.session_state['pagina_activa'] = 'COFCO'
-        st.rerun()
-
-# Opción Cargill con su logo en la barra lateral
+# Botones de Terminales (solo texto en mayúsculas + plataforma)
 is_cargill_active = st.session_state['pagina_activa'] == 'Cargill'
-if b64_cargill:
-    sb_g1, sb_g2 = st.sidebar.columns([1.4, 1])
-    with sb_g1:
-        borde_cargill = "border-left: 3px solid #ff4b4b; padding-left: 6px;" if is_cargill_active else "padding-left: 9px;"
-        st.markdown(
-            f'<div style="display:flex; align-items:center; height:48px; {borde_cargill}">'
-            f'<img src="data:image/png;base64,{b64_cargill}" style="max-height: 45px; max-width: 130px; object-fit: contain;">'
-            f'</div>',
-            unsafe_allow_html=True
-        )
-    with sb_g2:
-        if st.button("**Activo**" if is_cargill_active else "Ver ▸", key="btn_cargill"):
-            st.session_state['pagina_activa'] = 'Cargill'
-            st.rerun()
-else:
-    if st.sidebar.button("👉 **Cargill**" if is_cargill_active else "- Cargill", key="btn_cargill"):
-        st.session_state['pagina_activa'] = 'Cargill'
-        st.rerun()
+if st.sidebar.button("👉 **CARGILL (PRONEXO)**" if is_cargill_active else "- CARGILL (PRONEXO)", key="btn_cargill"):
+    st.session_state['pagina_activa'] = 'Cargill'
+    st.rerun()
 
-# Opción Bunge (texto por ahora; si subes assets/logoBUNGE.png lo mostrará solo)
+is_cofco_active = st.session_state['pagina_activa'] == 'COFCO'
+if st.sidebar.button("👉 **COFCO (ABSSA)**" if is_cofco_active else "- COFCO (ABSSA)", key="btn_cofco"):
+    st.session_state['pagina_activa'] = 'COFCO'
+    st.rerun()
+
 is_bunge_active = st.session_state['pagina_activa'] == 'Bunge'
-if b64_bunge:
-    sb_b1, sb_b2 = st.sidebar.columns([1.4, 1])
-    with sb_b1:
-        borde_bunge = "border-left: 3px solid #ff4b4b; padding-left: 6px;" if is_bunge_active else "padding-left: 9px;"
-        st.markdown(
-            f'<div style="display:flex; align-items:center; height:38px; {borde_bunge}">'
-            f'<img src="data:image/png;base64,{b64_bunge}" style="max-height: 32px; max-width: 115px; object-fit: contain;">'
-            f'</div>',
-            unsafe_allow_html=True
-        )
-    with sb_b2:
-        if st.button("**Activo**" if is_bunge_active else "Ver ▸", key="btn_bunge"):
-            st.session_state['pagina_activa'] = 'Bunge'
-            st.rerun()
-else:
-    if st.sidebar.button("👉 **Bunge**" if is_bunge_active else "- Bunge", key="btn_bunge"):
-        st.session_state['pagina_activa'] = 'Bunge'
-        st.rerun()
+if st.sidebar.button("👉 **BUNGE (CONTROL DOCUMENTARIO)**" if is_bunge_active else "- BUNGE (CONTROL DOCUMENTARIO)", key="btn_bunge"):
+    st.session_state['pagina_activa'] = 'Bunge'
+    st.rerun()
 
 is_prox_active = st.session_state['pagina_activa'] == 'Próximamente'
-if st.sidebar.button("👉 **Próximamente (Otras Terminales)**" if is_prox_active else "- Próximamente (Otras Terminales)", key="btn_prox"):
+if st.sidebar.button("👉 **PRÓXIMAMENTE (OTRAS)**" if is_prox_active else "- PRÓXIMAMENTE (OTRAS)", key="btn_prox"):
     st.session_state['pagina_activa'] = 'Próximamente'
     st.rerun()
 
-st.sidebar.markdown("<hr>", unsafe_allow_html=True)
+st.sidebar.markdown("<hr style='margin: 12px 0px;'>", unsafe_allow_html=True)
 if st.sidebar.button("🔄 Actualizar Todos los Datos", key="btn_global_scraping"):
     disparar_github_actions()
-
-# Estado y última actualización de cada scraper
-if os.path.exists("estado_scrapers.json"):
-    try:
-        with open("estado_scrapers.json", "r", encoding="utf-8") as f:
-            estado_scr = json.load(f)
-
-        st.sidebar.markdown("<br>", unsafe_allow_html=True)
-        st.sidebar.markdown("**ESTADO DE ACTUALIZACIÓN**")
-        for term in ["COFCO", "Cargill", "Bunge"]:
-            info = estado_scr.get(term, {})
-            icono = "🟢" if info.get("ok") else "🔴"
-            texto_estado = "OK" if info.get("ok") else "Error"
-            fecha_txt = info.get("fecha", "Sin datos")
-            st.sidebar.caption(f"{icono} **{term}** ({texto_estado}) — {fecha_txt}")
-    except Exception:
-        pass
 
 # =====================================================================
 # SECCIÓN: DASHBOARD GENERAL
 # =====================================================================
 if st.session_state['pagina_activa'] == 'Dashboard':
     st.subheader("📊 Dashboard Global de Habilitaciones")
+
+    # Leyenda compacta de última actualización y estado de errores
+    if os.path.exists("estado_scrapers.json"):
+        try:
+            with open("estado_scrapers.json", "r", encoding="utf-8") as f:
+                estado_scr = json.load(f)
+
+            ultima_fecha = estado_scr.get("ultima_ejecucion", "Sin registros")
+            errores = [t for t in ["CARGILL", "COFCO", "BUNGE"] if not estado_scr.get(t.capitalize() if t != "COFCO" else "COFCO", {}).get("ok", True)]
+            # Compatibilidad con claves exactas del JSON ('COFCO', 'Cargill', 'Bunge')
+            errores = []
+            for clave_json, nombre_mostrar in [("Cargill", "CARGILL"), ("COFCO", "COFCO"), ("Bunge", "BUNGE")]:
+                if clave_json in estado_scr and not estado_scr[clave_json].get("ok", True):
+                    errores.append(nombre_mostrar)
+
+            if errores:
+                st.caption(f"🔴 **Última actualización:** {ultima_fecha} — ⚠️ Error al sincronizar: **{', '.join(errores)}**")
+            else:
+                st.caption(f"🟢 **Última actualización:** {ultima_fecha} — Todas las terminales sincronizadas sin errores.")
+        except Exception:
+            pass
 
     df_emp_cofco = pd.read_csv("cofco_empleados_plantas.csv") if os.path.exists("cofco_empleados_plantas.csv") else pd.DataFrame()
     df_emp_cargill = pd.read_csv("cargill_empleados_plantas.csv") if os.path.exists("cargill_empleados_plantas.csv") else pd.DataFrame()
@@ -203,20 +156,20 @@ if st.session_state['pagina_activa'] == 'Dashboard':
     d_col1, d_col2, d_col3 = st.columns([1.2, 1.2, 1.6])
     with d_col1:
         terminales_disp = ["Seleccione Terminal..."]
-        if not df_emp_cofco.empty:
-            terminales_disp.append("COFCO")
         if not df_emp_cargill.empty:
-            terminales_disp.append("Cargill")
+            terminales_disp.append("CARGILL (PRONEXO)")
+        if not df_emp_cofco.empty:
+            terminales_disp.append("COFCO (ABSSA)")
         if not df_emp_bunge.empty:
-            terminales_disp.append("Bunge")
+            terminales_disp.append("BUNGE (CONTROL DOCUMENTARIO)")
         term_elegida = st.selectbox("Terminal", options=terminales_disp)
 
     with d_col2:
-        if term_elegida == "COFCO" and not df_emp_cofco.empty:
+        if term_elegida == "COFCO (ABSSA)" and not df_emp_cofco.empty:
             plantas_disp = df_emp_cofco['planta'].dropna().unique().tolist()
-        elif term_elegida == "Cargill" and not df_emp_cargill.empty:
+        elif term_elegida == "CARGILL (PRONEXO)" and not df_emp_cargill.empty:
             plantas_disp = df_emp_cargill['planta'].dropna().unique().tolist()
-        elif term_elegida == "Bunge" and not df_emp_bunge.empty:
+        elif term_elegida == "BUNGE (CONTROL DOCUMENTARIO)" and not df_emp_bunge.empty:
             plantas_disp = df_emp_bunge['planta'].dropna().unique().tolist()
         else:
             plantas_disp = []
@@ -226,12 +179,15 @@ if st.session_state['pagina_activa'] == 'Dashboard':
         busq_dash = st.text_input("🔍 Buscar empleado (nombre o DNI)", placeholder="Filtrar en tiempo real...")
 
     if term_elegida != "Seleccione Terminal..." and planta_elegida != "Seleccione Planta...":
-        if term_elegida == "COFCO":
+        if term_elegida == "COFCO (ABSSA)":
             df_target = df_emp_cofco
-        elif term_elegida == "Cargill":
+            prefijo_csv = "COFCO"
+        elif term_elegida == "CARGILL (PRONEXO)":
             df_target = df_emp_cargill
+            prefijo_csv = "CARGILL"
         else:
             df_target = df_emp_bunge
+            prefijo_csv = "BUNGE"
 
         df_filtrado = df_target[df_target['planta'] == planta_elegida].copy()
 
@@ -258,7 +214,7 @@ if st.session_state['pagina_activa'] == 'Dashboard':
             st.download_button(
                 f"📥 Descargar CSV ({planta_elegida})",
                 data=df_filtrado.to_csv(index=False).encode('utf-8-sig'),
-                file_name=f"dashboard_{term_elegida}_{planta_elegida}.csv",
+                file_name=f"dashboard_{prefijo_csv}_{planta_elegida}.csv",
                 mime="text/csv",
                 use_container_width=True
             )
@@ -307,15 +263,9 @@ if st.session_state['pagina_activa'] == 'Dashboard':
 # SECCIÓN: COFCO
 # =====================================================================
 elif st.session_state['pagina_activa'] == 'COFCO':
-    col_logo, col_t, col_b = st.columns([1.2, 4, 1.2])
-    with col_logo:
-        if b64_cofco:
-            st.markdown(
-                f'<img src="data:image/png;base64,{b64_cofco}" style="max-height: 55px; width: auto; object-fit: contain;">',
-                unsafe_allow_html=True
-            )
+    col_t, col_b = st.columns([4.8, 1.2])
     with col_t:
-        st.subheader("Panel de Control: COFCO International")
+        st.subheader("Panel de Control: COFCO (ABSSA)")
     with col_b:
         if st.button("🔄 Actualizar", key="btn_scrap_cofco", use_container_width=True):
             disparar_github_actions()
@@ -374,15 +324,9 @@ elif st.session_state['pagina_activa'] == 'COFCO':
 # SECCIÓN: CARGILL
 # =====================================================================
 elif st.session_state['pagina_activa'] == 'Cargill':
-    col_logo, col_t, col_b = st.columns([1.2, 4, 1.2])
-    with col_logo:
-        if b64_cargill:
-            st.markdown(
-                f'<img src="data:image/png;base64,{b64_cargill}" style="max-height: 80px; width: auto; object-fit: contain;">',
-                unsafe_allow_html=True
-            )
+    col_t, col_b = st.columns([4.8, 1.2])
     with col_t:
-        st.subheader("Panel de Control: Cargill (Pronexo)")
+        st.subheader("Panel de Control: CARGILL (PRONEXO)")
     with col_b:
         if st.button("🔄 Actualizar", key="btn_scrap_cargill", use_container_width=True):
             disparar_github_actions()
@@ -434,17 +378,9 @@ elif st.session_state['pagina_activa'] == 'Cargill':
 # SECCIÓN: BUNGE
 # =====================================================================
 elif st.session_state['pagina_activa'] == 'Bunge':
-    col_logo, col_t, col_b = st.columns([1.2, 4, 1.2])
-    with col_logo:
-        if b64_bunge:
-            st.markdown(
-                f'<img src="data:image/png;base64,{b64_bunge}" style="max-height: 55px; width: auto; object-fit: contain;">',
-                unsafe_allow_html=True
-            )
-        else:
-            st.markdown("### **BUNGE**")
+    col_t, col_b = st.columns([4.8, 1.2])
     with col_t:
-        st.subheader("Panel de Control: Bunge (Control Documentario)")
+        st.subheader("Panel de Control: BUNGE (CONTROL DOCUMENTARIO)")
     with col_b:
         if st.button("🔄 Actualizar", key="btn_scrap_bunge", use_container_width=True):
             disparar_github_actions()
