@@ -1,0 +1,15 @@
+{
+  "ultima_ejecucion": "13/11/2026 09:54 hs",
+  "COFCO": {
+    "ok": true,
+    "fecha": "13/11/2026 09:54 hs"
+  },
+  "Cargill": {
+    "ok": true,
+    "fecha": "13/11/2026 09:54 hs"
+  },
+  "Bunge": {
+    "ok": false,
+    "fecha": "13/11/2026 09:54 hs"
+  }
+}
