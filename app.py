@@ -12,14 +12,12 @@ st.set_page_config(
     layout="wide"
 )
 
-# Función helper para cargar imágenes en Base64 sin pérdida de calidad
 def get_base64_img(path):
     if os.path.exists(path):
         with open(path, "rb") as f:
             return base64.b64encode(f.read()).decode()
     return None
 
-# Función para disparar el workflow en GitHub Actions
 def disparar_github_actions():
     token = st.secrets.get("GITHUB_TOKEN")
     if not token:
@@ -42,7 +40,7 @@ def disparar_github_actions():
         except Exception as e:
             st.error(f"❌ Error de conexión con GitHub: {e}")
 
-# Estilos CSS optimizados (compactos para evitar scroll en el sidebar)
+# Estilos CSS
 st.markdown("""
     <style>
     .block-container { padding-top: 3.2rem; padding-bottom: 1rem; }
@@ -67,15 +65,12 @@ st.markdown("""
         color: #000000;
     }
     
-    /* Oculta el menú de opciones superior (Settings / Theme) */
     #MainMenu { visibility: hidden; }
     </style>
 """, unsafe_allow_html=True)
 
-# Pre-carga del logo de HL en Base64
-b64_hl = get_base64_img("assets/logoHL.png")
-
 # Logo HL en sidebar
+b64_hl = get_base64_img("assets/logoHL.png")
 if b64_hl:
     st.sidebar.markdown(
         f'<img src="data:image/png;base64,{b64_hl}" style="width: 175px; height: auto; margin-bottom: 8px;">',
@@ -89,7 +84,6 @@ st.sidebar.markdown("### Navegación")
 if 'pagina_activa' not in st.session_state:
     st.session_state['pagina_activa'] = 'Dashboard'
 
-# Botón Dashboard
 is_dash_active = st.session_state['pagina_activa'] == 'Dashboard'
 if st.sidebar.button("👉 **DASHBOARD**" if is_dash_active else "DASHBOARD", key="btn_dash"):
     st.session_state['pagina_activa'] = 'Dashboard'
@@ -97,7 +91,6 @@ if st.sidebar.button("👉 **DASHBOARD**" if is_dash_active else "DASHBOARD", ke
 
 st.sidebar.markdown("<div style='margin-top: 10px; margin-bottom: 4px; font-weight: 700; font-size: 0.85rem; color: #555;'>TERMINALES</div>", unsafe_allow_html=True)
 
-# Botones de Terminales (solo texto en mayúsculas + plataforma)
 is_cargill_active = st.session_state['pagina_activa'] == 'Cargill'
 if st.sidebar.button("👉 **CARGILL (PRONEXO)**" if is_cargill_active else "- CARGILL (PRONEXO)", key="btn_cargill"):
     st.session_state['pagina_activa'] = 'Cargill'
@@ -123,20 +116,181 @@ if st.sidebar.button("🔄 Actualizar Todos los Datos", key="btn_global_scraping
     disparar_github_actions()
 
 # =====================================================================
+# FUNCIÓN UNIFICADA PARA RENDERIZAR CADA TERMINAL
+# =====================================================================
+def contar_vencidos(df):
+    if df.empty or 'estado' not in df.columns:
+        return 0
+    return int(df['estado'].astype(str).str.contains("vencid", case=False, na=False).sum())
+
+def formatear_tabla_visual(df, columnas_map):
+    df_show = df.copy()
+    for col in columnas_map.keys():
+        if col not in df_show.columns:
+            df_show[col] = "-"
+    if 'dias_restantes' in df_show.columns:
+        df_show['dias_restantes'] = df_show['dias_restantes'].apply(
+            lambda x: int(float(x)) if pd.notna(x) and str(x).replace("-", "").replace(".", "").isdigit() else "-"
+        )
+    df_show = df_show[list(columnas_map.keys())].rename(columns=columnas_map)
+    return df_show
+
+def renderizar_panel_terminal(prefijo_csv, titulo_terminal):
+    col_t, col_b = st.columns([4.8, 1.2])
+    with col_t:
+        st.subheader(f"Panel de Control: {titulo_terminal}")
+    with col_b:
+        if st.button("🔄 Actualizar", key=f"btn_scrap_{prefijo_csv}", use_container_width=True):
+            disparar_github_actions()
+
+    f_emp = f"{prefijo_csv}_empresa_pendientes.csv"
+    f_trab = f"{prefijo_csv}_trabajadores_pendientes.csv"
+    f_veh = f"{prefijo_csv}_vehiculos_pendientes.csv"
+
+    if not (os.path.exists(f_emp) or os.path.exists(f_trab) or os.path.exists(f_veh)):
+        st.warning(f"⚠️ No se encontraron archivos actualizados para {titulo_terminal}. Ejecute el scraper.")
+        return
+
+    df_emp = pd.read_csv(f_emp) if os.path.exists(f_emp) else pd.DataFrame()
+    df_trab = pd.read_csv(f_trab) if os.path.exists(f_trab) else pd.DataFrame()
+    df_veh = pd.read_csv(f_veh) if os.path.exists(f_veh) else pd.DataFrame()
+
+    # Asegurar orden alfabético por nombre
+    if not df_emp.empty and 'nombre' in df_emp.columns:
+        df_emp = df_emp.sort_values(by=['nombre', 'documento'], key=lambda c: c.astype(str).str.lower()).reset_index(drop=True)
+    if not df_trab.empty and 'nombre' in df_trab.columns:
+        df_trab = df_trab.sort_values(by=['nombre', 'documento'], key=lambda c: c.astype(str).str.lower()).reset_index(drop=True)
+    if not df_veh.empty and 'nombre' in df_veh.columns:
+        df_veh = df_veh.sort_values(by=['nombre', 'documento'], key=lambda c: c.astype(str).str.lower()).reset_index(drop=True)
+
+    # Métricas superiores unificadas
+    pend_emp = len(df_emp)
+    venc_emp = contar_vencidos(df_emp)
+    pend_trab = len(df_trab)
+    venc_trab = contar_vencidos(df_trab)
+    hay_vehiculos = not df_veh.empty
+
+    if hay_vehiculos:
+        pend_veh = len(df_veh)
+        venc_veh = contar_vencidos(df_veh)
+        c1, c2, c3, c4, c5, c6 = st.columns(6)
+        c1.metric("Pendientes Empresa", pend_emp)
+        c2.metric("Vencidos Empresa", venc_emp)
+        c3.metric("Pendientes Trabajadores", pend_trab)
+        c4.metric("Vencidos Trabajadores", venc_trab)
+        c5.metric("Pendientes Vehículos", pend_veh)
+        c6.metric("Vencidos Vehículos", venc_veh)
+    else:
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Pendientes Empresa", pend_emp)
+        c2.metric("Vencidos Empresa", venc_emp)
+        c3.metric("Pendientes Trabajadores", pend_trab)
+        c4.metric("Vencidos Trabajadores", venc_trab)
+
+    st.markdown("<hr style='margin: 10px 0px;'>", unsafe_allow_html=True)
+
+    # Pestañas unificadas
+    nombres_tabs = ["🏢 Pendientes Empresa", "👷‍♂️ Pendientes Trabajadores"]
+    if hay_vehiculos:
+        nombres_tabs.append("🚛 Pendientes Vehículos")
+
+    tabs = st.tabs(nombres_tabs)
+
+    # TAB 1: PENDIENTES EMPRESA
+    with tabs[0]:
+        if not df_emp.empty:
+            cols_emp = {
+                "nombre": "Nombre",
+                "documento": "Documento",
+                "planta": "Planta",
+                "vencimiento": "Vencimiento",
+                "dias_restantes": "Días restantes",
+                "estado": "Estado"
+            }
+            df_emp_vis = formatear_tabla_visual(df_emp, cols_emp)
+            st.dataframe(df_emp_vis, use_container_width=True, hide_index=True, height=350)
+            st.download_button(
+                "📥 Descargar Pendientes Empresa",
+                data=df_emp_vis.to_csv(index=False).encode('utf-8-sig'),
+                file_name=f"{prefijo_csv}_empresa_pendientes.csv",
+                mime="text/csv",
+                key=f"dl_emp_{prefijo_csv}"
+            )
+        else:
+            st.success("✅ No hay documentos pendientes de empresa.")
+
+    # TAB 2: PENDIENTES TRABAJADORES
+    with tabs[1]:
+        if not df_trab.empty:
+            f_col1, f_col2 = st.columns([1.2, 2])
+            with f_col1:
+                estados_t = df_trab['estado'].dropna().unique().tolist() if 'estado' in df_trab.columns else []
+                filtro_est_t = st.multiselect("Estado", options=estados_t, default=estados_t, key=f"f_est_t_{prefijo_csv}")
+            with f_col2:
+                busq_t = st.text_input("🔍 Buscar trabajador, DNI o documento:", key=f"f_busq_t_{prefijo_csv}", placeholder="Filtrar...")
+
+            df_t_f = df_trab[df_trab['estado'].isin(filtro_est_t)] if estados_t else df_trab
+            if busq_t:
+                df_t_f = df_t_f[
+                    df_t_f['nombre'].astype(str).str.contains(busq_t, case=False, na=False) |
+                    df_t_f['dni'].astype(str).str.contains(busq_t, case=False, na=False) |
+                    df_t_f['documento'].astype(str).str.contains(busq_t, case=False, na=False)
+                ]
+
+            cols_trab = {
+                "nombre": "Nombre",
+                "dni": "DNI",
+                "documento": "Documento",
+                "planta": "Planta",
+                "vencimiento": "Vencimiento",
+                "dias_restantes": "Días restantes",
+                "estado": "Estado"
+            }
+            df_trab_vis = formatear_tabla_visual(df_t_f, cols_trab)
+            st.dataframe(df_trab_vis, use_container_width=True, hide_index=True, height=350)
+            st.download_button(
+                "📥 Descargar Pendientes Trabajadores",
+                data=df_trab_vis.to_csv(index=False).encode('utf-8-sig'),
+                file_name=f"{prefijo_csv}_trabajadores_pendientes.csv",
+                mime="text/csv",
+                key=f"dl_trab_{prefijo_csv}"
+            )
+        else:
+            st.success("✅ No hay documentos pendientes de trabajadores.")
+
+    # TAB 3: PENDIENTES VEHÍCULOS (solo si existen registros)
+    if hay_vehiculos:
+        with tabs[2]:
+            cols_veh = {
+                "nombre": "Nombre",
+                "documento": "Documento",
+                "planta": "Planta",
+                "vencimiento": "Vencimiento",
+                "dias_restantes": "Días restantes",
+                "estado": "Estado"
+            }
+            df_veh_vis = formatear_tabla_visual(df_veh, cols_veh)
+            st.dataframe(df_veh_vis, use_container_width=True, hide_index=True, height=350)
+            st.download_button(
+                "📥 Descargar Pendientes Vehículos",
+                data=df_veh_vis.to_csv(index=False).encode('utf-8-sig'),
+                file_name=f"{prefijo_csv}_vehiculos_pendientes.csv",
+                mime="text/csv",
+                key=f"dl_veh_{prefijo_csv}"
+            )
+
+# =====================================================================
 # SECCIÓN: DASHBOARD GENERAL
 # =====================================================================
 if st.session_state['pagina_activa'] == 'Dashboard':
     st.subheader("📊 Dashboard Global de Habilitaciones")
 
-    # Leyenda compacta de última actualización y estado de errores
     if os.path.exists("estado_scrapers.json"):
         try:
             with open("estado_scrapers.json", "r", encoding="utf-8") as f:
                 estado_scr = json.load(f)
 
             ultima_fecha = estado_scr.get("ultima_ejecucion", "Sin registros")
-            errores = [t for t in ["CARGILL", "COFCO", "BUNGE"] if not estado_scr.get(t.capitalize() if t != "COFCO" else "COFCO", {}).get("ok", True)]
-            # Compatibilidad con claves exactas del JSON ('COFCO', 'Cargill', 'Bunge')
             errores = []
             for clave_json, nombre_mostrar in [("Cargill", "CARGILL"), ("COFCO", "COFCO"), ("Bunge", "BUNGE")]:
                 if clave_json in estado_scr and not estado_scr[clave_json].get("ok", True):
@@ -260,215 +414,16 @@ if st.session_state['pagina_activa'] == 'Dashboard':
         st.info("👆 Seleccione una **Terminal** y una **Planta / Instalación** en los desplegables superiores.")
 
 # =====================================================================
-# SECCIÓN: COFCO
+# SECCIONES DE TERMINALES (USANDO EL COMPONENTE UNIFICADO)
 # =====================================================================
 elif st.session_state['pagina_activa'] == 'COFCO':
-    col_t, col_b = st.columns([4.8, 1.2])
-    with col_t:
-        st.subheader("Panel de Control: COFCO (ABSSA)")
-    with col_b:
-        if st.button("🔄 Actualizar", key="btn_scrap_cofco", use_container_width=True):
-            disparar_github_actions()
+    renderizar_panel_terminal("cofco", "COFCO (ABSSA)")
 
-    csv_pen = "cofco_pendientes.csv"
-    csv_emp = "cofco_empleados_plantas.csv"
-
-    if os.path.exists(csv_pen) and os.path.exists(csv_emp):
-        df_pen = pd.read_csv(csv_pen)
-        df_emp = pd.read_csv(csv_emp)
-
-        total_empleados_unicos = df_emp['dni'].nunique() if 'dni' in df_emp.columns else len(df_emp)
-
-        col1, col2, col3, col4, col5 = st.columns(5)
-        col1.metric("Total Pendientes", len(df_pen))
-        col2.metric("Vencidos", len(df_pen[df_pen['estado'].str.contains("Vencido", case=False, na=False)]))
-        col3.metric("Por Vencer", len(df_pen[df_pen['estado'].str.contains("Por Vencer", case=False, na=False)]))
-        col4.metric("Pendientes", len(df_pen[df_pen['estado'].str.contains("Pendiente", case=False, na=False)]))
-        col5.metric("Empleados Únicos", total_empleados_unicos)
-
-        st.markdown("<hr style='margin: 10px 0px;'>", unsafe_allow_html=True)
-        tab1, tab2 = st.tabs(["📌 Pendientes / Vencimientos", "🏢 Estado de Empleados por Planta"])
-
-        with tab1:
-            f_col1, f_col2 = st.columns([1, 2])
-            with f_col1:
-                estados_disp = df_pen['estado'].unique().tolist()
-                filtro_est = st.multiselect("Estado", options=estados_disp, default=estados_disp, key="f_est_cofco")
-            with f_col2:
-                busqueda = st.text_input("🔍 Buscar requerimiento o categoría:", key="f_busq_cofco", placeholder="Escribe para filtrar...")
-
-            df_f = df_pen[df_pen['estado'].isin(filtro_est)]
-            if busqueda:
-                df_f = df_f[
-                    df_f['tipo_requerimiento'].str.contains(busqueda, case=False, na=False) |
-                    df_f['categoria'].str.contains(busqueda, case=False, na=False)
-                ]
-            st.dataframe(df_f, use_container_width=True, hide_index=True, height=350)
-            st.download_button("📥 Descargar CSV Filtrado", data=df_f.to_csv(index=False).encode('utf-8-sig'), file_name="cofco_pendientes_filtrado.csv", mime="text/csv")
-
-        with tab2:
-            plantas_disp = df_emp['planta'].unique().tolist()
-            planta_elegida = st.selectbox("Planta:", options=["Seleccione una planta..."] + plantas_disp, key="sel_planta_det_cofco")
-
-            if planta_elegida != "Seleccione una planta...":
-                df_emp_f = df_emp[df_emp['planta'] == planta_elegida].copy()
-                df_emp_f['Estado'] = df_emp_f['estado_color'].apply(lambda x: "🟢 Habilitado" if 'lightgreen' in str(x).lower() else "🔴 Inhabilitado")
-                st.dataframe(df_emp_f[['nombre', 'dni', 'cuil', 'Estado']], use_container_width=True, hide_index=True, height=350)
-                st.download_button(f"📥 Descargar Reporte {planta_elegida}", data=df_emp_f.to_csv(index=False).encode('utf-8-sig'), file_name=f"empleados_{planta_elegida}.csv", mime="text/csv")
-            else:
-                st.info("👆 Seleccione una planta en el selector superior.")
-    else:
-        st.warning("⚠️ No se encontraron archivos de COFCO. Ejecute el scraper.")
-
-# =====================================================================
-# SECCIÓN: CARGILL
-# =====================================================================
 elif st.session_state['pagina_activa'] == 'Cargill':
-    col_t, col_b = st.columns([4.8, 1.2])
-    with col_t:
-        st.subheader("Panel de Control: CARGILL (PRONEXO)")
-    with col_b:
-        if st.button("🔄 Actualizar", key="btn_scrap_cargill", use_container_width=True):
-            disparar_github_actions()
+    renderizar_panel_terminal("cargill", "CARGILL (PRONEXO)")
 
-    csv_emp_pend = "cargill_empresa_pendientes.csv"
-    csv_trab_pend = "cargill_trabajadores_pendientes.csv"
-    csv_acceso = "cargill_empleados_plantas.csv"
-
-    if os.path.exists(csv_emp_pend) or os.path.exists(csv_trab_pend) or os.path.exists(csv_acceso):
-        df_cargill_emp = pd.read_csv(csv_emp_pend) if os.path.exists(csv_emp_pend) else pd.DataFrame()
-        df_cargill_trab = pd.read_csv(csv_trab_pend) if os.path.exists(csv_trab_pend) else pd.DataFrame()
-        df_cargill_acc = pd.read_csv(csv_acceso) if os.path.exists(csv_acceso) else pd.DataFrame()
-
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Pendientes Empresa", len(df_cargill_emp))
-        c2.metric("Trabajadores Observados", len(df_cargill_trab))
-        c3.metric("Total en Control Acceso", len(df_cargill_acc))
-
-        st.markdown("<hr style='margin: 10px 0px;'>", unsafe_allow_html=True)
-        tab_c1, tab_c2, tab_c3 = st.tabs(["🏢 Pendientes Empresa", "👷‍♂️ Trabajadores Pendientes", "🛡️ Control de Acceso Go/No Go"])
-
-        with tab_c1:
-            if not df_cargill_emp.empty:
-                st.dataframe(df_cargill_emp, use_container_width=True, hide_index=True, height=350)
-                st.download_button("📥 Descargar Empresa Pendientes", data=df_cargill_emp.to_csv(index=False).encode('utf-8-sig'), file_name="cargill_empresa_pendientes.csv", mime="text/csv")
-            else:
-                st.info("No hay documentos de empresa pendientes.")
-
-        with tab_c2:
-            if not df_cargill_trab.empty:
-                st.dataframe(df_cargill_trab, use_container_width=True, hide_index=True, height=350)
-                st.download_button("📥 Descargar Trabajadores Pendientes", data=df_cargill_trab.to_csv(index=False).encode('utf-8-sig'), file_name="cargill_trabajadores_pendientes.csv", mime="text/csv")
-            else:
-                st.info("No hay trabajadores con requerimientos pendientes.")
-
-        with tab_c3:
-            if not df_cargill_acc.empty:
-                filtro_inst = st.multiselect("Filtrar por Instalación / Planta:", options=df_cargill_acc['planta'].unique().tolist(), default=df_cargill_acc['planta'].unique().tolist())
-                df_acc_f = df_cargill_acc[df_cargill_acc['planta'].isin(filtro_inst)].copy()
-                df_acc_f['Estado'] = df_acc_f['estado_color'].apply(lambda x: "🟢 Habilitado" if 'lightgreen' in str(x).lower() else "🔴 Inhabilitado")
-                st.dataframe(df_acc_f[['nombre', 'dni', 'planta', 'servicio', 'estado_acceso', 'Estado']], use_container_width=True, hide_index=True, height=350)
-                st.download_button("📥 Descargar Control de Acceso", data=df_acc_f.to_csv(index=False).encode('utf-8-sig'), file_name="cargill_control_acceso.csv", mime="text/csv")
-            else:
-                st.info("No hay registros en Control de Acceso.")
-    else:
-        st.warning("⚠️ No se encontraron archivos de Cargill. Ejecute el scraper.")
-
-# =====================================================================
-# SECCIÓN: BUNGE
-# =====================================================================
 elif st.session_state['pagina_activa'] == 'Bunge':
-    col_t, col_b = st.columns([4.8, 1.2])
-    with col_t:
-        st.subheader("Panel de Control: BUNGE (CONTROL DOCUMENTARIO)")
-    with col_b:
-        if st.button("🔄 Actualizar", key="btn_scrap_bunge", use_container_width=True):
-            disparar_github_actions()
-
-    csv_bunge_vtos = "bunge_vencimientos_proximos.csv"
-    csv_bunge_emp = "bunge_empleados_plantas.csv"
-
-    if os.path.exists(csv_bunge_vtos) or os.path.exists(csv_bunge_emp):
-        df_bunge_vtos = pd.read_csv(csv_bunge_vtos) if os.path.exists(csv_bunge_vtos) else pd.DataFrame()
-        df_bunge_emp = pd.read_csv(csv_bunge_emp) if os.path.exists(csv_bunge_emp) else pd.DataFrame()
-
-        vtos_empresa = len(df_bunge_vtos[df_bunge_vtos['tipo'] == 'Empresa']) if not df_bunge_vtos.empty else 0
-        vtos_personal = len(df_bunge_vtos[df_bunge_vtos['tipo'] == 'Personal']) if not df_bunge_vtos.empty else 0
-        empleados_unicos = df_bunge_emp['dni'].nunique() if (not df_bunge_emp.empty and 'dni' in df_bunge_emp.columns) else 0
-
-        b1, b2, b3, b4 = st.columns(4)
-        b1.metric("Alertas ≤ 15 días (Total)", len(df_bunge_vtos))
-        b2.metric("🏢 Docs. Empresa ≤ 15d", vtos_empresa)
-        b3.metric("👷‍♂️ Docs. Personal ≤ 15d", vtos_personal)
-        b4.metric("Personal Único", empleados_unicos)
-
-        st.markdown("<hr style='margin: 10px 0px;'>", unsafe_allow_html=True)
-        tab_b1, tab_b2 = st.tabs(["⚠️ Vencimientos Próximos (≤ 15 días)", "🏢 Estado de Empleados por Planta"])
-
-        with tab_b1:
-            if not df_bunge_vtos.empty:
-                f_b1, f_b2, f_b3 = st.columns([1.2, 1.2, 1.6])
-                with f_b1:
-                    plantas_vto = df_bunge_vtos['planta'].unique().tolist()
-                    filtro_planta_vto = st.multiselect("Planta / Sector", options=plantas_vto, default=plantas_vto, key="f_planta_bunge")
-                with f_b2:
-                    tipos_vto = df_bunge_vtos['tipo'].unique().tolist()
-                    filtro_tipo_vto = st.multiselect("Categoría", options=tipos_vto, default=tipos_vto, key="f_tipo_bunge")
-                with f_b3:
-                    busq_bunge = st.text_input("🔍 Buscar empleado o documento:", key="f_busq_bunge", placeholder="Filtrar...")
-
-                df_bv_f = df_bunge_vtos[
-                    df_bunge_vtos['planta'].isin(filtro_planta_vto) &
-                    df_bunge_vtos['tipo'].isin(filtro_tipo_vto)
-                ]
-                if busq_bunge:
-                    df_bv_f = df_bv_f[
-                        df_bv_f['nombre'].str.contains(busq_bunge, case=False, na=False) |
-                        df_bv_f['documento'].str.contains(busq_bunge, case=False, na=False) |
-                        df_bv_f['dni'].astype(str).str.contains(busq_bunge, case=False, na=False)
-                    ]
-
-                st.dataframe(
-                    df_bv_f[['planta', 'tipo', 'nombre', 'dni', 'documento', 'vencimiento', 'estado']],
-                    use_container_width=True,
-                    hide_index=True,
-                    height=350
-                )
-                st.download_button(
-                    "📥 Descargar Vencimientos Bunge (≤ 15 días)",
-                    data=df_bv_f.to_csv(index=False).encode('utf-8-sig'),
-                    file_name="bunge_vencimientos_proximos.csv",
-                    mime="text/csv"
-                )
-            else:
-                st.success("✅ No hay documentación vencida ni por vencer en los próximos 15 días en Bunge.")
-
-        with tab_b2:
-            if not df_bunge_emp.empty:
-                plantas_b_disp = df_bunge_emp['planta'].unique().tolist()
-                planta_b_elegida = st.selectbox("Planta / Sector:", options=["Seleccione una planta..."] + plantas_b_disp, key="sel_planta_det_bunge")
-
-                if planta_b_elegida != "Seleccione una planta...":
-                    df_be_f = df_bunge_emp[df_bunge_emp['planta'] == planta_b_elegida].copy()
-                    df_be_f['Estado'] = df_be_f['estado_color'].apply(lambda x: "🟢 Habilitado" if 'lightgreen' in str(x).lower() else "🔴 Inhabilitado")
-                    st.dataframe(
-                        df_be_f[['nombre', 'dni', 'vigencia_hasta', 'Estado']],
-                        use_container_width=True,
-                        hide_index=True,
-                        height=350
-                    )
-                    st.download_button(
-                        f"📥 Descargar Nómina {planta_b_elegida}",
-                        data=df_be_f.to_csv(index=False).encode('utf-8-sig'),
-                        file_name=f"bunge_empleados_{planta_b_elegida}.csv",
-                        mime="text/csv"
-                    )
-                else:
-                    st.info("👆 Seleccione una planta en el selector superior.")
-            else:
-                st.info("No hay datos de personal cargados para Bunge.")
-    else:
-        st.warning("⚠️ No se encontraron archivos de Bunge. Ejecute el scraper.")
+    renderizar_panel_terminal("bunge", "BUNGE (CONTROL DOCUMENTARIO)")
 
 elif st.session_state['pagina_activa'] == 'Próximamente':
     st.subheader("🚧 Próximamente")
